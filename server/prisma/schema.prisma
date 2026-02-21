@@ -242,3 +242,19 @@ model DemoScreenerSnapshot {
 
   @@unique([snapshotAnchorDate, universeType, universeName, symbol])
 }
+
+model PriceHistory {
+  id        String   @id @default(uuid())
+  symbol    String
+  assetType String   // STOCK | CRYPTO
+  date      String   // YYYY-MM-DD
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    Float
+  createdAt DateTime @default(now())
+
+  @@unique([symbol, date])
+  @@index([symbol, date])
+}

@@ -7,6 +7,7 @@ export default function AdminUsers() {
     const [loading, setLoading] = useState(true);
     const [actionMsg, setActionMsg] = useState('');
     const [activeTab, setActiveTab] = useState<'USERS' | 'AUDIT'>('USERS');
+    const [backfillStatus, setBackfillStatus] = useState('');
 
     const fetchUsers = () => {
         fetch('/api/admin/users')
@@ -75,6 +76,23 @@ export default function AdminUsers() {
         }
     };
 
+    const handleBackfill = async (universe: string) => {
+        setBackfillStatus(`Backfilling ${universe}...`);
+        try {
+            const res = await fetch('/api/admin/price-history/backfill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ universe })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Backfill failed');
+            setBackfillStatus(`✓ ${universe} backfill started for ${data.total} symbols — check server logs for progress.`);
+        } catch (e: any) {
+            setBackfillStatus(`✗ ${e.message}`);
+        }
+        setTimeout(() => setBackfillStatus(''), 6000);
+    };
+
     if (loading) return <div className="p-8 text-neutral-400 animate-pulse">Loading Admin Panel...</div>;
 
     return (
@@ -91,6 +109,26 @@ export default function AdminUsers() {
                     {actionMsg}
                 </div>
             )}
+
+            {/* Backfill Panel */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 mb-8">
+                <h2 className="text-lg font-semibold mb-1">Price History Cache</h2>
+                <p className="text-neutral-500 text-sm mb-4">Download 2 years of OHLCV for each universe to enable API-free screener and instant analysis.</p>
+                <div className="flex flex-wrap gap-3">
+                    {(['SP500', 'NASDAQ100', 'CRYPTO'] as const).map(u => (
+                        <button
+                            key={u}
+                            onClick={() => handleBackfill(u)}
+                            className="px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-medium text-sm rounded-lg transition-colors"
+                        >
+                            ↓ Backfill {u}
+                        </button>
+                    ))}
+                </div>
+                {backfillStatus && (
+                    <p className="mt-3 text-sm text-neutral-400">{backfillStatus}</p>
+                )}
+            </div>
 
             <div className="flex gap-4 mb-6 border-b border-neutral-800 pb-2">
                 <button

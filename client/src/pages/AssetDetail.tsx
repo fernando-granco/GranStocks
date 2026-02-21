@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Cpu, AlertTriangle, Sparkles, Activity, ShieldAlert, BarChart3, Database, FlaskConical } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '../utils';
-import { usePreferences } from '../context/PreferencesContext';
 
 export default function AssetDetail({ symbol, assetType, onBack }: { symbol: string, assetType: 'STOCK' | 'CRYPTO', onBack: () => void }) {
     const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
@@ -12,7 +11,6 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
     const [range, setRange] = useState<string>('6m');
     const [realtimeAnalysis, setRealtimeAnalysis] = useState<any>(null);
     const [isLoadingRealtime, setIsLoadingRealtime] = useState(false);
-    const { mode } = usePreferences();
 
     const { data: summary, isLoading: isLoadingSummary } = useQuery({
         queryKey: ['assetSummary', symbol, assetType, range],
@@ -80,6 +78,13 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
         finally { setIsLoadingRealtime(false); }
     };
 
+    // Auto-trigger analysis when page loads if no cached summary exists
+    useEffect(() => {
+        if (!isLoadingSummary && !summary?.indicators) {
+            fetchRealtimeAnalysis();
+        }
+    }, [isLoadingSummary, symbol, assetType]);
+
     // Prepare chart data format
     const chartData = summary?.candles?.t ? summary.candles.t.map((timestamp: number, idx: number) => ({
         date: new Date(timestamp * 1000).toLocaleDateString(),
@@ -123,11 +128,9 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                 <TabButton active={activeTab === 'TECHNICAL'} onClick={() => setActiveTab('TECHNICAL')} icon={<Activity size={16} />}>Technicals</TabButton>
                                 <TabButton active={activeTab === 'RISK'} onClick={() => setActiveTab('RISK')} icon={<ShieldAlert size={16} />}>Risk Flags</TabButton>
                                 <TabButton active={activeTab === 'FIRM_VIEW'} onClick={() => setActiveTab('FIRM_VIEW')} icon={<Database size={16} />}>Firm View Roles</TabButton>
-                                {mode === 'ADVANCED' && (
-                                    <TabButton active={activeTab === 'EVIDENCE'} onClick={() => setActiveTab('EVIDENCE')} icon={<FlaskConical size={16} className="text-amber-500" />}>
-                                        <span className="text-amber-500">Evidence Pack</span>
-                                    </TabButton>
-                                )}
+                                <TabButton active={activeTab === 'EVIDENCE'} onClick={() => setActiveTab('EVIDENCE')} icon={<FlaskConical size={16} className="text-amber-500" />}>
+                                    <span className="text-amber-500">Evidence Pack</span>
+                                </TabButton>
                             </div>
 
                             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 min-h-[400px]">
@@ -170,7 +173,7 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                             )}
                                         </div>
 
-                                        {mode === 'ADVANCED' && chartData.length > 0 && (
+                                        {chartData.length > 0 && (
                                             <div className="h-[150px] w-full pt-4 border-t border-neutral-800">
                                                 <div className="text-xs text-neutral-500 font-bold mb-2 uppercase tracking-wider">Volume</div>
                                                 <ResponsiveContainer width="100%" height="100%">
@@ -199,21 +202,14 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                                 <MetricCard label="Volatility (20d)" value={effectiveIndicators.vol20 != null ? `${(effectiveIndicators.vol20 * 100).toFixed(2)}%` : '---'} />
                                                 <MetricCard label="Trend (20/50)" value={effectiveIndicators.sma20 > effectiveIndicators.sma50 ? 'BULLISH' : 'BEARISH'} />
 
-                                                {mode === 'ADVANCED' && (
-                                                    <>
-                                                        <MetricCard label="MACD" value={effectiveIndicators.macd?.macd?.toFixed(3)} />
-                                                        <MetricCard label="Stochastic K" value={effectiveIndicators.stochastic?.k?.toFixed(1)} />
-                                                        <MetricCard label="ATR (14)" value={effectiveIndicators.atr14?.toFixed(2)} />
-                                                        <MetricCard label="Bollinger Width" value={effectiveIndicators.bollinger ? (effectiveIndicators.bollinger.upper - effectiveIndicators.bollinger.lower).toFixed(2) : '-'} />
-                                                    </>
-                                                )}
+                                                <MetricCard label="MACD" value={effectiveIndicators.macd?.macd?.toFixed(3)} />
+                                                <MetricCard label="Stochastic K" value={effectiveIndicators.stochastic?.k?.toFixed(1)} />
+                                                <MetricCard label="ATR (14)" value={effectiveIndicators.atr14?.toFixed(2)} />
+                                                <MetricCard label="Bollinger Width" value={effectiveIndicators.bollinger ? (effectiveIndicators.bollinger.upper - effectiveIndicators.bollinger.lower).toFixed(2) : '-'} />
                                             </div>
                                         ) : (
-                                            <div className="text-center py-8">
-                                                <p className="text-neutral-500 mb-4">No cached indicators found.</p>
-                                                <button onClick={fetchRealtimeAnalysis} disabled={isLoadingRealtime} className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
-                                                    {isLoadingRealtime ? 'Computing...' : '⚡ Compute Live Analysis'}
-                                                </button>
+                                            <div className="text-center py-8 text-neutral-500 animate-pulse">
+                                                {isLoadingRealtime ? 'Computing analysis...' : 'No indicators available.'}
                                             </div>
                                         )}
                                     </div>
@@ -227,7 +223,7 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                                 <MetricCard label="Drawdown from Peak" value={effectiveIndicators.drawdown90 != null ? `${(effectiveIndicators.drawdown90 * 100).toFixed(2)}%` : '---'} isNegative={true} />
                                                 <MetricCard label="Data Freshness" value={summary.quote?.isStale ? "STALE" : "LIVE"} isNegative={summary.quote?.isStale} />
 
-                                                {mode === 'ADVANCED' && effectiveIndicators.dataQualityScore !== undefined && (
+                                                {effectiveIndicators.dataQualityScore !== undefined && (
                                                     <MetricCard label="Data Quality Score" value={`${effectiveIndicators.dataQualityScore}/100`} isNegative={effectiveIndicators.dataQualityScore < 80} />
                                                 )}
                                             </div>
@@ -263,17 +259,14 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                                 })}
                                             </div>
                                         ) : (
-                                            <div className="text-center py-8">
-                                                <p className="text-neutral-500 mb-4">No analysis snapshots available.</p>
-                                                <button onClick={fetchRealtimeAnalysis} disabled={isLoadingRealtime} className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
-                                                    {isLoadingRealtime ? 'Computing...' : '⚡ Compute Live Analysis'}
-                                                </button>
+                                            <div className="text-center py-8 text-neutral-500 animate-pulse">
+                                                {isLoadingRealtime ? 'Computing analysis...' : 'No analysis snapshots available.'}
                                             </div>
                                         )}
                                     </div>
                                 )}
 
-                                {activeTab === 'EVIDENCE' && mode === 'ADVANCED' && (
+                                {activeTab === 'EVIDENCE' && (
                                     <div className="space-y-4 animate-in fade-in duration-300">
                                         <h3 className="text-lg font-semibold text-amber-500 border-b border-amber-900/50 pb-2 flex items-center gap-2">
                                             <FlaskConical size={18} /> Evidence Pack

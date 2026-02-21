@@ -5,6 +5,7 @@ import { LLMService } from './services/llm';
 import { DailyJobService } from './services/scheduler';
 import { ScreenerService } from './services/screener';
 import { PredictionService, IndicatorService, FirmViewService } from './services/analysis';
+import { PriceHistoryService } from './services/price-history';
 import { encryptText } from './utils/crypto';
 import z from 'zod';
 
@@ -234,19 +235,7 @@ export async function registerRoutes(server: FastifyInstance) {
         };
     });
 
-    // --- On-demand analysis for untracked assets ---
-    // If no stored snapshot, compute on-the-fly from live candles
-    server.get('/api/asset/realtime-analysis', { preValidation: [server.authenticate] }, async (req, reply) => {
-        const schema = z.object({ symbol: z.string().toUpperCase(), assetType: z.enum(['STOCK', 'CRYPTO']).default('STOCK') });
-        const { symbol, assetType } = schema.parse(req.query);
-        const candles = await MarketData.getCandles(symbol, assetType, '6m');
-        if (!candles || candles.s !== 'ok') return reply.status(503).send({ error: 'Could not fetch candle data' });
-        const indicators = IndicatorService.computeAll(candles);
-        if (!indicators) return reply.status(503).send({ error: 'Insufficient data for analysis' });
-        const firmViews = FirmViewService.generateFirmViews(indicators);
-        const evidencePack = PredictionService.generateEvidencePack(indicators);
-        return { indicators, firmView: Object.fromEntries(Object.entries(firmViews).map(([k, v]) => [k, JSON.stringify(v)])), evidencePack };
-    });
+
 
     server.get('/api/overview/today', { preValidation: [server.authenticate] }, async (req, reply) => {
         const authUser = req.user as { id: string };
@@ -405,12 +394,77 @@ export async function registerRoutes(server: FastifyInstance) {
         return { results, errors };
     });
 
+    // --- On-demand Realtime Analysis (uses price history cache) ---
+    server.get('/api/asset/realtime-analysis', { preValidation: [server.authenticate] }, async (req, reply) => {
+        const schema = z.object({
+            symbol: z.string().toUpperCase(),
+            assetType: z.enum(['STOCK', 'CRYPTO']).default('STOCK')
+        });
+        const { symbol, assetType } = schema.parse(req.query);
+
+        // Try cache first, fallback to live API
+        const candles = await PriceHistoryService.getCandles(symbol, assetType, 180);
+        if (!candles || (candles as any).c?.length === 0) {
+            return reply.status(404).send({ error: 'No price data found. Run backfill first.' });
+        }
+
+        const indicators = IndicatorService.computeAll(candles as any);
+        const firmViews = FirmViewService.generateFirmViews(indicators);
+        const evidencePack = PredictionService.generateEvidencePack(indicators);
+        const predictions = [
+            { horizonDays: 1, ...PredictionService.predict(indicators, 1) },
+            { horizonDays: 5, ...PredictionService.predict(indicators, 5) },
+            { horizonDays: 20, ...PredictionService.predict(indicators, 20) }
+        ];
+
+        return { indicators, firmViews, evidencePack, predictions };
+    });
+
+    // --- Admin: Backfill Price History ---
+    server.post('/api/admin/price-history/backfill', { preValidation: [server.requireAdmin] }, async (req, reply) => {
+        const schema = z.object({
+            universe: z.enum(['SP500', 'NASDAQ100', 'CRYPTO']).optional(),
+            symbols: z.array(z.string()).optional()
+        });
+        const { universe, symbols } = schema.parse(req.body);
+
+        let targetSymbols: string[] = symbols || [];
+        if (universe && targetSymbols.length === 0) {
+            // Load from universe JSON file
+            const fs = await import('fs');
+            const path = await import('path');
+            const filePath = path.join(__dirname, 'data', `${universe.toLowerCase()}.json`);
+            targetSymbols = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        }
+
+        if (targetSymbols.length === 0) {
+            return reply.status(400).send({ error: 'Provide either universe or symbols[]' });
+        }
+
+        const assetType = universe === 'CRYPTO' ? 'CRYPTO' : 'STOCK';
+
+        // Fire-and-forget so the request doesn't time out
+        setImmediate(async () => {
+            let done = 0;
+            for (const sym of targetSymbols) {
+                try {
+                    await PriceHistoryService.backfillSymbol(sym, assetType);
+                    done++;
+                } catch (e: any) {
+                    console.error(`[Backfill] Error for ${sym}: ${e.message}`);
+                }
+            }
+            console.log(`[Backfill] Done. ${done}/${targetSymbols.length} symbols processed.`);
+        });
+
+        return { status: 'Backfill started', total: targetSymbols.length };
+    });
+
     // --- Admin ---
     server.post('/api/admin/run-daily', { preValidation: [server.requireAdmin] }, async (req, reply) => {
         const schema = z.object({ date: z.string().optional() });
         const { date } = schema.parse(req.query);
 
-        // Fire-and-forget job execution internally
         setImmediate(() => {
             DailyJobService.runDailyJob(date).catch(console.error);
         });
@@ -424,14 +478,15 @@ export async function registerRoutes(server: FastifyInstance) {
             date: z.string()
         });
         const { universe, date } = schema.parse(req.body);
+        const assetType = universe === 'CRYPTO' ? 'CRYPTO' : 'STOCK';
 
-        // Check if already running
-        const jobState = await prisma.jobState.findUnique({ where: { id: universe } });
+        const jobState = await prisma.jobState.findUnique({
+            where: { universeType_universeName: { universeType: assetType, universeName: universe } }
+        });
         if (jobState && jobState.status === 'RUNNING') {
             return reply.status(409).send({ error: 'Screener job is already running for this universe.' });
         }
 
-        // Fire-and-forget job execution
         setImmediate(() => {
             ScreenerService.runScreenerJob(universe, date).catch(console.error);
         });

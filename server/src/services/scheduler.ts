@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { prisma } from './cache';
 import { MarketData } from './market-data';
 import { IndicatorService, PredictionService, FirmViewService } from './analysis';
+import { PriceHistoryService } from './price-history';
 import { DemoService } from './demo';
 import { ScreenerService } from './screener';
 
@@ -31,11 +32,11 @@ export class DailyJobService {
                     continue;
                 }
 
-                // Fetch data for the last 6 months using unified router
-                const candles = await MarketData.getCandles(asset.symbol, asset.type as 'STOCK' | 'CRYPTO', '6m');
+                // Use price history cache; falls back to live API if cache empty
+                const candles = await PriceHistoryService.getCandles(asset.symbol, asset.type as 'STOCK' | 'CRYPTO', 180);
 
-                if (!candles || candles.s !== 'ok') {
-                    console.log(`[Job] Warning: Could not fetch candles for ${asset.symbol}`);
+                if (!candles || (candles as any).s !== 'ok') {
+                    console.log(`[Job] Warning: No candle data for ${asset.symbol}`);
                     continue;
                 }
 
@@ -111,13 +112,15 @@ export class DailyJobService {
         });
         console.log('Daily Job Cron Scheduled for 18:00 America/Toronto');
 
-        // Runs at the 15th minute of every hour (e.g. 1:15, 2:15)
-        cron.schedule('15 * * * *', () => {
-            console.log('Running Hourly Screener Job...');
-            ScreenerService.runScreenerJob('SP500', new Date().toISOString().substring(0, 13) + ':00').catch(console.error);
-            ScreenerService.runScreenerJob('CRYPTO', new Date().toISOString().substring(0, 13) + ':00').catch(console.error);
-        });
-        console.log('Hourly Screener Job Scheduled');
+        // Nightly candle append — runs at 18:30 to give daily bars time to settle
+        cron.schedule('30 18 * * *', async () => {
+            console.log('[PriceHistory] Appending latest candles for all tracked assets...');
+            const assets = await prisma.asset.findMany({ where: { isActive: true } });
+            for (const asset of assets) {
+                await PriceHistoryService.appendLatestCandle(asset.symbol, asset.type as 'STOCK' | 'CRYPTO');
+            }
+        }, { timezone: 'America/Toronto' });
+        console.log('Nightly PriceHistory Append Scheduled for 18:30 America/Toronto');
 
         // Runs on the 1st of every month at midnight
         cron.schedule('0 0 1 * *', () => {

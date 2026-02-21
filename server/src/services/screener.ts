@@ -1,5 +1,6 @@
 import { prisma } from './cache';
 import { MarketData } from './market-data';
+import { PriceHistoryService } from './price-history';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -26,8 +27,8 @@ export class ScreenerService {
                 const symbol = symbols[i];
 
                 try {
-                    // Fetch 6M data in Daily resolution via unified router
-                    const data = await MarketData.getCandles(symbol, assetType, '6m');
+                    // Use cached price history (API-free, instant)
+                    const data = await PriceHistoryService.getCandles(symbol, assetType, 180) as any;
 
                     if (data && data.s === 'ok' && data.c && data.c.length > 0) {
                         const { score, metrics, flags } = this.calculateScreenerMetrics(data.c, data.h, data.l);
