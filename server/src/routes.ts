@@ -286,16 +286,26 @@ export async function registerRoutes(server: FastifyInstance) {
     server.get('/api/screener/:universe', { preValidation: [server.authenticate] }, async (req, reply) => {
         const schema = z.object({ universe: z.enum(['SP500', 'NASDAQ100', 'CRYPTO']) });
         const { universe } = schema.parse(req.params);
+        const assetType = universe === 'CRYPTO' ? 'CRYPTO' : 'STOCK';
 
-        // Get Job state
-        const jobState = await prisma.jobState.findUnique({ where: { id: universe } });
-
-        // Get snapshots
-        const snapshots = await prisma.screenerSnapshot.findMany({
-            where: { universeName: universe },
-            orderBy: { score: 'desc' },
-            take: 25
+        // Get Job state - use compound unique key
+        const jobState = await prisma.jobState.findUnique({
+            where: { universeType_universeName: { universeType: assetType, universeName: universe } }
         });
+
+        // Get all snapshots ordered by dateHour desc (latest first), then score desc
+        const all = await prisma.screenerSnapshot.findMany({
+            where: { universeName: universe },
+            orderBy: [{ dateHour: 'desc' }, { score: 'desc' }]
+        });
+
+        // Deduplicate: keep the first (i.e. latest + highest score) per symbol
+        const seen = new Set<string>();
+        const snapshots = all.filter(s => {
+            if (seen.has(s.symbol)) return false;
+            seen.add(s.symbol);
+            return true;
+        }).sort((a, b) => b.score - a.score).slice(0, 25);
 
         return { state: jobState, topCandidates: snapshots };
     });

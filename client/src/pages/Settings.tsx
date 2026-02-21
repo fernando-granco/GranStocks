@@ -107,25 +107,6 @@ export default function Settings() {
             <div>
                 <h1 className="text-3xl font-bold mb-6">Settings</h1>
 
-                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 mb-8">
-                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><Globe size={20} className="text-indigo-400" /> General Settings</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-neutral-400 mb-2">Display Timezone</label>
-                            <select
-                                value={timezone}
-                                onChange={(e) => setTimezone(e.target.value)}
-                                className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                            >
-                                <option value="America/Toronto">Eastern Time (Toronto/New York)</option>
-                                <option value="America/Vancouver">Pacific Time (Vancouver/LA)</option>
-                                <option value="Europe/London">London (GMT/BST)</option>
-                                <option value="UTC">UTC</option>
-                            </select>
-                            <p className="text-xs text-neutral-500 mt-2">Default is set to Toronto.</p>
-                        </div>
-                    </div>
-                </div>
 
                 <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
                     <h3 className="text-xl font-semibold mb-4 text-white">Tracked Assets</h3>
@@ -221,6 +202,57 @@ export default function Settings() {
                             </div>
                         ))}
                     </div>
+                </div>
+            </div>
+
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><Globe size={20} className="text-indigo-400" /> General Settings</h3>
+                <div>
+                    <label className="block text-sm font-medium text-neutral-400 mb-2">Display Timezone</label>
+                    <select
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                    >
+                        <optgroup label="North America">
+                            <option value="America/Toronto">Eastern Time — Toronto / New York</option>
+                            <option value="America/Chicago">Central Time — Chicago</option>
+                            <option value="America/Denver">Mountain Time — Denver</option>
+                            <option value="America/Los_Angeles">Pacific Time — Los Angeles / Vancouver</option>
+                            <option value="America/Anchorage">Alaska Time — Anchorage</option>
+                            <option value="Pacific/Honolulu">Hawaii — Honolulu</option>
+                            <option value="America/Mexico_City">Mexico City</option>
+                            <option value="America/Sao_Paulo">São Paulo</option>
+                            <option value="America/Argentina/Buenos_Aires">Buenos Aires</option>
+                        </optgroup>
+                        <optgroup label="Europe">
+                            <option value="UTC">UTC</option>
+                            <option value="Europe/London">London (GMT/BST)</option>
+                            <option value="Europe/Paris">Paris / Berlin / Madrid / Rome (CET)</option>
+                            <option value="Europe/Helsinki">Helsinki / Kyiv (EET)</option>
+                            <option value="Europe/Moscow">Moscow</option>
+                            <option value="Europe/Istanbul">Istanbul</option>
+                        </optgroup>
+                        <optgroup label="Asia / Pacific">
+                            <option value="Asia/Dubai">Dubai (GST)</option>
+                            <option value="Asia/Karachi">Karachi (PKT)</option>
+                            <option value="Asia/Kolkata">Mumbai / Kolkata (IST)</option>
+                            <option value="Asia/Dhaka">Dhaka (BST)</option>
+                            <option value="Asia/Bangkok">Bangkok / Jakarta (ICT)</option>
+                            <option value="Asia/Singapore">Singapore / Hong Kong / Kuala Lumpur</option>
+                            <option value="Asia/Shanghai">Beijing / Shanghai (CST)</option>
+                            <option value="Asia/Tokyo">Tokyo (JST)</option>
+                            <option value="Australia/Sydney">Sydney (AEST)</option>
+                            <option value="Pacific/Auckland">Auckland (NZST)</option>
+                        </optgroup>
+                        <optgroup label="Africa">
+                            <option value="Africa/Lagos">Lagos / Nairobi (WAT)</option>
+                            <option value="Africa/Nairobi">Nairobi (EAT)</option>
+                            <option value="Africa/Johannesburg">Johannesburg (SAST)</option>
+                            <option value="Africa/Cairo">Cairo (EET)</option>
+                        </optgroup>
+                    </select>
+                    <p className="text-xs text-neutral-500 mt-2">Affects chart timestamps and daily job scheduling display.</p>
                 </div>
             </div>
 

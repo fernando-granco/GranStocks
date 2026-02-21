@@ -1,33 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-import { BarChart3, Play, AlertTriangle, Info, DollarSign } from 'lucide-react';
+import { BarChart3, Play, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '../utils';
 import { useNavigate } from 'react-router-dom';
 
 export default function Screener() {
     const [universe, setUniverse] = useState<'SP500' | 'NASDAQ100' | 'CRYPTO'>('SP500');
-    const [livePrices, setLivePrices] = useState<Record<string, { price: number, loading: boolean }>>({});
+    const [livePrices, setLivePrices] = useState<Record<string, number | null>>({});
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-
-    const fetchPrice = async (symbol: string, assetType: 'STOCK' | 'CRYPTO', e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (livePrices[symbol]) return;
-        setLivePrices(prev => ({ ...prev, [symbol]: { price: 0, loading: true } }));
-        try {
-            const res = await fetch(`/api/data/quote?symbol=${symbol}&assetType=${assetType}`);
-            if (res.ok) {
-                const data = await res.json();
-                setLivePrices(prev => ({ ...prev, [symbol]: { price: data.price, loading: false } }));
-            } else {
-                setLivePrices(prev => ({ ...prev, [symbol]: { price: -1, loading: false } }));
-            }
-        } catch {
-            setLivePrices(prev => ({ ...prev, [symbol]: { price: -1, loading: false } }));
-        }
-    };
 
     const { data, isLoading } = useQuery({
         queryKey: ['screener', universe],
@@ -52,6 +35,25 @@ export default function Screener() {
             queryClient.invalidateQueries({ queryKey: ['screener', universe] });
         }
     });
+
+    useEffect(() => {
+        if (!data?.topCandidates || data.topCandidates.length === 0) return;
+
+        const assetType = universe === 'CRYPTO' ? 'CRYPTO' : 'STOCK';
+        data.topCandidates.forEach((c: any) => {
+            if (livePrices[c.symbol] !== undefined) return;
+
+            // Fetch price for each candidate
+            fetch(`/api/data/quote?symbol=${c.symbol}&assetType=${assetType}`)
+                .then(res => res.json())
+                .then(quote => {
+                    setLivePrices(prev => ({ ...prev, [c.symbol]: quote.price }));
+                })
+                .catch(() => {
+                    setLivePrices(prev => ({ ...prev, [c.symbol]: null }));
+                });
+        });
+    }, [data?.topCandidates, universe]);
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -156,19 +158,13 @@ export default function Screener() {
                                             <h2 className="text-2xl font-bold">{c.symbol}</h2>
                                         </div>
                                         <div className="flex items-center gap-2 pl-6">
-                                            {livePrices[c.symbol] ? (
-                                                <span className="text-sm font-mono text-neutral-300">
-                                                    {livePrices[c.symbol].loading ? '...' : livePrices[c.symbol].price > 0 ? `$${livePrices[c.symbol].price.toFixed(2)}` : 'N/A'}
-                                                </span>
-                                            ) : (
-                                                <button
-                                                    onClick={(e) => fetchPrice(c.symbol, universe === 'CRYPTO' ? 'CRYPTO' : 'STOCK', e)}
-                                                    className="text-neutral-600 hover:text-indigo-400 transition-colors flex items-center gap-1 text-xs"
-                                                    title="Load live price"
-                                                >
-                                                    <DollarSign size={13} /> Price
-                                                </button>
-                                            )}
+                                            <span className="text-sm font-mono text-neutral-300">
+                                                {livePrices[c.symbol] !== undefined ? (
+                                                    livePrices[c.symbol] !== null ? `$${livePrices[c.symbol]!.toFixed(2)}` : 'N/A'
+                                                ) : (
+                                                    <span className="animate-pulse opacity-50">...</span>
+                                                )}
+                                            </span>
                                             {c.ts && (
                                                 <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded",
                                                     (new Date().getTime() - new Date(c.ts).getTime()) < 24 * 60 * 60 * 1000 ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"

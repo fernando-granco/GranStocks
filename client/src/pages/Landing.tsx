@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
     TrendingUp,
     ShieldCheck,
@@ -12,6 +13,7 @@ import {
 
 export default function Landing() {
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     return (
         <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col font-sans">
@@ -21,18 +23,29 @@ export default function Landing() {
                     <span className="text-xl font-bold tracking-tight text-white">GranStocks<span className="text-blue-500">Analytics</span></span>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => navigate('/login')}
-                        className="text-sm font-medium hover:text-white transition-colors text-gray-400"
-                    >
-                        Sign In
-                    </button>
-                    <button
-                        onClick={() => navigate('/register')}
-                        className="text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                        Get Started
-                    </button>
+                    {user ? (
+                        <button
+                            onClick={() => navigate('/app')}
+                            className="text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            Dashboard
+                        </button>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="text-sm font-medium hover:text-white transition-colors text-gray-400"
+                            >
+                                Sign In
+                            </button>
+                            <button
+                                onClick={() => navigate('/register')}
+                                className="text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                Get Started
+                            </button>
+                        </>
+                    )}
                 </div>
             </header>
 
