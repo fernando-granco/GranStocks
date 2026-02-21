@@ -8,10 +8,16 @@ datasource db {
 }
 
 model User {
-  id        String               @id @default(uuid())
-  selections UserAssetSelection[]
-  llmConfigs UserLLMConfig[]
-  narratives AiNarrative[]
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  role         String          @default("USER") // ENUM(USER, ADMIN)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  trackedAssets TrackedAsset[]
+  llmConfigs    UserLLMConfig[]
+  narratives    AiNarrative[]
 }
 
 model Asset {
@@ -23,13 +29,15 @@ model Asset {
   isActive    Boolean  @default(true)
 }
 
-model UserAssetSelection {
+model TrackedAsset {
   id        String   @id @default(uuid())
   userId    String
   symbol    String
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, symbol])
 }
 
 model CachedResponse {
@@ -70,7 +78,7 @@ model UserLLMConfig {
   id               String   @id @default(uuid())
   userId           String
   name             String   // e.g. "ChatGPT"
-  provider         String   // OPENAI, GEMINI, DEEPSEEK, OPENAI_COMPAT
+  provider         String   // OPENAI, GOOGLE, ANTHROPIC, XAI, OPENROUTER, DEEPSEEK, PERPLEXITY, OPENAI_COMPAT
   model            String
   encryptedApiKey  String
   keyLast4         String
@@ -85,8 +93,10 @@ model UserLLMConfig {
 model AiNarrative {
   id            String   @id @default(uuid())
   userId        String
+  assetType     String   @default("STOCK") // STOCK or CRYPTO
   symbol        String?  // null = daily summary
-  date          String
+  dateHour      String
+  role          String   @default("CONSENSUS")
   llmConfigId   String
   contentText   String
   providerUsed  String
@@ -95,4 +105,48 @@ model AiNarrative {
 
   user          User           @relation(fields: [userId], references: [id])
   llmConfig     UserLLMConfig  @relation(fields: [llmConfigId], references: [id])
+}
+
+model ScreenerSnapshot {
+  id            String   @id @default(uuid())
+  dateHour      String   // YYYY-MM-DDTHH:00
+  universeType  String   // STOCK | CRYPTO
+  universeName  String
+  symbol        String
+  assetType     String   @default("STOCK")
+  score         Float
+  metricsJson   String
+  riskFlagsJson String   @default("{}")
+  price         Float    @default(0)
+  source        String   @default("UNKNOWN")
+  ts            DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@unique([dateHour, universeType, universeName, symbol])
+}
+
+model JobState {
+  id           String   @id @default(uuid())
+  universeType String   // STOCK | CRYPTO
+  universeName String
+  status       String   // PENDING, RUNNING, COMPLETED, FAILED
+  cursorIndex  Int      @default(0)
+  total        Int
+  lastRunAt    DateTime @default(now())
+  lastError    String?
+  updatedAt    DateTime @updatedAt
+
+  @@unique([universeType, universeName])
+}
+
+model AnalysisSnapshot {
+  id            String   @id @default(uuid())
+  dateHour      String   // YYYY-MM-DDTHH:00
+  assetType     String   // STOCK | CRYPTO
+  symbol        String
+  role          String   // TECHNICAL, FUNDAMENTAL, SENTIMENT, BULL, BEAR, RISK, CONSENSUS
+  payloadJson   String
+  createdAt     DateTime @default(now())
+
+  @@unique([dateHour, assetType, symbol, role])
 }

@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { prisma } from './cache';
-import { FinnhubService } from './finnhub';
+import { MarketData } from './market-data';
 import { IndicatorService, PredictionService } from './analysis';
 
 export class DailyJobService {
@@ -29,10 +29,8 @@ export class DailyJobService {
                     continue;
                 }
 
-                // Fetch data for the last 180 days relative to now
-                const to = Math.floor(Date.now() / 1000);
-                const from = to - (180 * 24 * 60 * 60);
-                const candles = await FinnhubService.getCandles(asset.symbol, 'D', from, to);
+                // Fetch data for the last 6 months using unified router
+                const candles = await MarketData.getCandles(asset.symbol, asset.type as 'STOCK' | 'CRYPTO', '6m');
 
                 if (!candles || candles.s !== 'ok') {
                     console.log(`[Job] Warning: Could not fetch candles for ${asset.symbol}`);

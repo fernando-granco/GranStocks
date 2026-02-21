@@ -57,6 +57,34 @@ export class GeminiProvider implements LLMProvider {
     }
 }
 
+export class AnthropicProvider implements LLMProvider {
+    constructor(private apiKey: string, private model: string = "claude-3-haiku-20240307") { }
+
+    async generateNarrative(prompt: string): Promise<string> {
+        const url = 'https://api.anthropic.com/v1/messages';
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.apiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: this.model,
+                max_tokens: 300,
+                system: 'You are a financial analyst generating a short daily narrative based ONLY on provided deterministic indicators.',
+                messages: [
+                    { role: 'user', content: prompt }
+                ]
+            })
+        });
+
+        if (!res.ok) throw new Error(`Anthropic Error: ${res.statusText}`);
+        const data = await res.json();
+        return data.content[0].text + "\n\n(AI-generated commentary - simulation only)";
+    }
+}
+
 export class LLMService {
     static async getProviderInstance(configId: string): Promise<LLMProvider> {
         const config = await prisma.userLLMConfig.findUniqueOrThrow({
@@ -66,7 +94,7 @@ export class LLMService {
         // Dynamic quotas: max 10 requests per day per provider config
         const today = new Date().toISOString().split('T')[0];
         const usageCount = await prisma.aiNarrative.count({
-            where: { llmConfigId: configId, date: today }
+            where: { llmConfigId: configId, dateHour: today }
         });
 
         if (usageCount >= 10) {
@@ -80,7 +108,15 @@ export class LLMService {
                 return new OpenAIProvider(apiKey, config.model);
             case 'OPENAI_COMPAT':
             case 'DEEPSEEK':
-                return new OpenAIProvider(apiKey, config.model, config.baseUrl);
+                return new OpenAIProvider(apiKey, config.model, config.baseUrl ?? undefined);
+            case 'GROQ':
+                return new OpenAIProvider(apiKey, config.model, config.baseUrl ?? 'https://api.groq.com/openai/v1');
+            case 'TOGETHER':
+                return new OpenAIProvider(apiKey, config.model, config.baseUrl ?? 'https://api.together.xyz/v1');
+            case 'OLLAMA':
+                return new OpenAIProvider(apiKey || 'ollama', config.model, config.baseUrl ?? 'http://localhost:11434/v1');
+            case 'ANTHROPIC':
+                return new AnthropicProvider(apiKey, config.model);
             case 'GEMINI':
                 return new GeminiProvider(apiKey, config.model);
             default:

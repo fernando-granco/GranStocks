@@ -1,0 +1,56 @@
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { TrendingUp, Settings, LogOut, BarChart3 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+
+export default function Layout() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { user, logout } = useAuth();
+
+    return (
+        <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans selection:bg-indigo-500/30">
+            <nav className="border-b border-neutral-800 bg-neutral-900/50 backdrop-blur-xl sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/app')}>
+                        <TrendingUp className="text-indigo-400" />
+                        <span className="font-bold text-lg tracking-tight">GranStocks <span className="text-neutral-500 font-normal">Analytics</span></span>
+                    </div>
+                    <div className="flex items-center gap-6">
+                        {user?.role === 'ADMIN' && (
+                            <span className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded">
+                                Admin
+                            </span>
+                        )}
+                        <button
+                            onClick={() => navigate('/app/screener')}
+                            className={`transition-colors ${location.pathname === '/app/screener' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                        >
+                            <BarChart3 size={20} />
+                        </button>
+                        <button
+                            onClick={() => navigate('/app/settings')}
+                            className={`transition-colors ${location.pathname === '/app/settings' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                        >
+                            <Settings size={20} />
+                        </button>
+                        <button
+                            onClick={logout}
+                            className="text-neutral-400 hover:text-rose-400 transition-colors flex items-center gap-1.5 text-sm font-medium"
+                        >
+                            <LogOut size={16} /> <span className="hidden sm:inline">Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <main className="max-w-7xl mx-auto px-4 py-8">
+                <Outlet />
+            </main>
+
+            <footer className="max-w-7xl mx-auto px-4 py-12 text-center text-sm text-neutral-600">
+                <p>Disclaimer: Educational analysis only — not financial advice.</p>
+                <p>Predictions are uncertain and may be wrong. AI-generated commentary may be inaccurate.</p>
+            </footer>
+        </div>
+    );
+}
