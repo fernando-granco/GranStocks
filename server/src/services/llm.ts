@@ -123,8 +123,8 @@ export class LLMService {
                 return new OpenAIProvider(apiKey, config.model, config.baseUrl ?? 'https://api.groq.com/openai/v1');
             case 'TOGETHER':
                 return new OpenAIProvider(apiKey, config.model, config.baseUrl ?? 'https://api.together.xyz/v1');
-            case 'OLLAMA':
-                return new OpenAIProvider(apiKey || 'ollama', config.model, config.baseUrl ?? 'http://localhost:11434/v1');
+            case 'XAI':
+                return new OpenAIProvider(apiKey, config.model, config.baseUrl ?? 'https://api.x.ai/v1');
             case 'ANTHROPIC':
                 return new AnthropicProvider(apiKey, config.model);
             case 'GEMINI':

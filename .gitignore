@@ -47,3 +47,6 @@ build/
 .next/
 coverage/
 .nyc_output/
+
+# Documentation
+INSTALLATION.md

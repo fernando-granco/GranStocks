@@ -156,4 +156,10 @@ export class FinnhubService {
         const url = `${FINNHUB_BASE_URL}/company-news?symbol=${symbol}&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`;
         return fetchWithRateLimit(url, `news:${symbol}:${from}:${to}`, 21600); // 6 hours
     }
+
+    static async search(query: string) {
+        const url = `${FINNHUB_BASE_URL}/search?q=${encodeURIComponent(query)}&token=${FINNHUB_API_KEY}`;
+        // Cache search results for 24 hours to save API calls
+        return fetchWithRateLimit(url, `search:${query}`, 86400);
+    }
 }

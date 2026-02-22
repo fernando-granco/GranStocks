@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { TrendingUp, Settings, LogOut, BarChart3, Globe } from 'lucide-react';
+import { TrendingUp, Settings, LogOut, BarChart3, Globe, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Layout() {
@@ -26,24 +26,34 @@ export default function Layout() {
                         )}
 
                         <button
-                            onClick={() => navigate('/app/universes')}
-                            className={`transition-colors ${location.pathname === '/app/universes' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
-                            title="Universe Builder"
+                            onClick={() => navigate('/app')}
+                            className={`flex items-center gap-2 transition-colors ${location.pathname === '/app' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                            title="Dashboard"
                         >
-                            <Globe size={20} />
+                            <LayoutDashboard size={20} /> <span className="hidden md:inline font-medium text-sm">Dashboard</span>
+                        </button>
+
+                        <button
+                            onClick={() => navigate('/app/watchlists')}
+                            className={`flex items-center gap-2 transition-colors ${location.pathname === '/app/watchlists' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                            title="Watchlists"
+                        >
+                            <Globe size={20} /> <span className="hidden md:inline font-medium text-sm">Watchlists</span>
                         </button>
 
                         <button
                             onClick={() => navigate('/app/screener')}
-                            className={`transition-colors ${location.pathname === '/app/screener' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                            className={`flex items-center gap-2 transition-colors ${location.pathname === '/app/screener' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                            title="Screener"
                         >
-                            <BarChart3 size={20} />
+                            <BarChart3 size={20} /> <span className="hidden md:inline font-medium text-sm">Screener</span>
                         </button>
                         <button
                             onClick={() => navigate('/app/settings')}
-                            className={`transition-colors ${location.pathname === '/app/settings' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                            className={`flex items-center gap-2 transition-colors ${location.pathname === '/app/settings' ? 'text-indigo-400' : 'text-neutral-400 hover:text-white'}`}
+                            title="Settings"
                         >
-                            <Settings size={20} />
+                            <Settings size={20} /> <span className="hidden md:inline font-medium text-sm">Settings</span>
                         </button>
                         <button
                             onClick={async () => {

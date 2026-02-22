@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
-import { BarChart3, Play, AlertTriangle, Info } from 'lucide-react';
+import { BarChart3, Play, AlertTriangle, Info, Star } from 'lucide-react';
 import { cn } from '../utils';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,6 +21,41 @@ export default function Screener() {
         },
         refetchInterval: (query: any) => query.state.data?.state?.status === 'RUNNING' ? 3000 : false
     });
+
+    const { data: trackedAssets = [] } = useQuery({
+        queryKey: ['tracked-assets'],
+        queryFn: async () => {
+            const res = await fetch('/api/tracked-assets');
+            if (!res.ok) return [];
+            return res.json();
+        }
+    });
+
+    const trackMutation = useMutation({
+        mutationFn: async (symbol: string) => {
+            const res = await fetch('/api/tracked-assets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symbol, assetType: universe === 'CRYPTO' ? 'CRYPTO' : 'STOCK' })
+            });
+            if (!res.ok) throw new Error('Failed to track asset');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tracked-assets'] });
+        }
+    });
+
+    const untrackMutation = useMutation({
+        mutationFn: async (symbol: string) => {
+            const res = await fetch(`/api/tracked-assets/${symbol}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to untrack asset');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tracked-assets'] });
+        }
+    });
+
+    const isTracked = (symbol: string) => trackedAssets.some((a: any) => a.symbol === symbol);
 
     const runJobMutation = useMutation({
         mutationFn: async () => {
@@ -174,8 +209,27 @@ export default function Screener() {
                                             )}
                                         </div>
                                     </div>
-                                    <div className="text-sm font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
-                                        Score: {c.score.toFixed(0)}
+                                    <div className="flex gap-2">
+                                        <div className="text-sm font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                                            Score: {c.score.toFixed(0)}
+                                        </div>
+                                        {isTracked(c.symbol) ? (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); untrackMutation.mutate(c.symbol); }}
+                                                className="text-amber-500 hover:text-amber-400 opacity-0 group-hover:opacity-100 transition-colors tooltip z-10"
+                                                title="Untrack Asset"
+                                            >
+                                                <Star className="w-5 h-5 fill-current" />
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); trackMutation.mutate(c.symbol); }}
+                                                className="text-neutral-500 hover:text-amber-400 opacity-0 group-hover:opacity-100 transition-colors tooltip z-10"
+                                                title="Track Asset"
+                                            >
+                                                <Star className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 

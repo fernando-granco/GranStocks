@@ -165,4 +165,45 @@ export class BinanceProvider {
             return { s: 'error' };
         }
     }
+
+    static async search(query: string) {
+        // Binance doesn't have a direct "search" endpoint, but we can filter the ticker price list
+        const cacheKey = `binance:search:${query}`;
+        const cached = await CacheService.getCacheConfig(cacheKey);
+        if (cached && !cached.isStale) return JSON.parse(cached.payloadJson);
+
+        try {
+            // First time, fetch all prices to get a symbol list (approx 2500 pairs)
+            const allSymbolsCacheKey = 'binance:all_symbols';
+            let symbolsList: any[] = [];
+
+            const cachedAll = await CacheService.getCacheConfig(allSymbolsCacheKey);
+            if (cachedAll && !cachedAll.isStale) {
+                symbolsList = JSON.parse(cachedAll.payloadJson);
+            } else {
+                const res = await fetch(`${BINANCE_REST_BASE_URL}/api/v3/ticker/price`);
+                if (!res.ok) throw new Error('Failed to fetch Binance tickers');
+                symbolsList = await res.json();
+                await CacheService.setCacheConfig(allSymbolsCacheKey, JSON.stringify(symbolsList), 86400, 'BINANCE_REST'); // 24hr cache
+            }
+
+            const lowerQ = query.toLowerCase();
+            const matches = symbolsList
+                .filter(s => s.symbol.toLowerCase().includes(lowerQ) && s.symbol.endsWith('USDT'))
+                .slice(0, 10); // cap to top 10 matches for speed
+
+            const payload = matches.map(m => ({
+                symbol: m.symbol,
+                description: `Binance Coin: ${m.symbol}`,
+                type: 'Crypto'
+            }));
+
+            await CacheService.setCacheConfig(cacheKey, JSON.stringify(payload), 3600, 'BINANCE_REST');
+            return payload;
+
+        } catch (e) {
+            console.error(`Error searching Binance for ${query}`, e);
+            return [];
+        }
+    }
 }

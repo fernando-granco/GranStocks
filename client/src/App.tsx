@@ -15,7 +15,8 @@ import DemoDashboard from './pages/DemoDashboard';
 import DemoScreener from './pages/DemoScreener';
 import DemoAssetDetail from './pages/DemoAssetDetail';
 import AdminUsers from './pages/AdminUsers';
-import UniverseBuilder from './pages/UniverseBuilder';
+import Watchlists from './pages/Watchlists';
+import UniverseDetail from './pages/UniverseDetail';
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -55,7 +56,8 @@ export default function App() {
                                     <Route path="screener" element={<Screener />} />
                                     <Route path="settings" element={<Settings />} />
                                     <Route path="admin/users" element={<AdminUsers />} />
-                                    <Route path="universes" element={<UniverseBuilder />} />
+                                    <Route path="watchlists" element={<Watchlists />} />
+                                    <Route path="universe/:id" element={<UniverseDetail />} />
                                     <Route path="asset/:assetType/:symbol" element={<AssetDetailWrapper />} />
                                 </Route>
                             </Route>

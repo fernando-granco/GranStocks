@@ -13,22 +13,37 @@ export async function registerRoutes(server: FastifyInstance) {
 
     // --- Tracked Asset Selection ---
     server.post('/api/tracked-assets', { preValidation: [server.authenticate] }, async (req, reply) => {
-        const schema = z.object({ symbol: z.string().toUpperCase().min(1).max(10).regex(/^[A-Z0-9.-]+$/) });
-        const { symbol } = schema.parse(req.body);
+        const schema = z.object({
+            symbol: z.string().toUpperCase().min(1).max(20).regex(/^[A-Z0-9.-]+$/),
+            assetType: z.enum(['STOCK', 'CRYPTO']).default('STOCK')
+        });
+        const { symbol, assetType } = schema.parse(req.body);
 
         // Quick validate against MarketData
-        const profile = await MarketData.getOverview(symbol, 'STOCK');
-        if (!profile || Object.keys(profile).length === 0) {
-            return reply.status(400).send({ error: 'Invalid symbol or not found.' });
-        }
+        let displayName = symbol;
+        let exchange = 'US Market';
 
-        const displayName = profile.Name || profile.name || symbol;
-        const exchange = profile.Exchange || profile.exchange || '';
+        if (assetType === 'STOCK') {
+            const profile = await MarketData.getOverview(symbol, assetType);
+            if (!profile || Object.keys(profile).length === 0) {
+                return reply.status(400).send({ error: 'Invalid symbol or not found.' });
+            }
+            displayName = profile.Name || profile.name || symbol;
+            exchange = profile.Exchange || profile.exchange || '';
+        } else {
+            try {
+                // Verify crypto symbol exists by quoting it
+                await MarketData.getQuote(symbol, assetType);
+                exchange = 'Binance';
+            } catch (e) {
+                return reply.status(400).send({ error: 'Invalid crypto symbol or not found on Binance.' });
+            }
+        }
 
         await prisma.asset.upsert({
             where: { symbol },
-            update: { displayName, isActive: true },
-            create: { symbol, displayName, exchange }
+            update: { displayName, isActive: true, type: assetType },
+            create: { symbol, displayName, exchange, type: assetType }
         });
 
         const authUser = req.user as { id: string };
@@ -37,6 +52,20 @@ export async function registerRoutes(server: FastifyInstance) {
             await prisma.trackedAsset.create({
                 data: { userId: authUser.id, symbol }
             });
+
+            // Auto-trigger background processing for this new asset
+            setImmediate(async () => {
+                try {
+                    const dateStr = new Intl.DateTimeFormat('en-CA', {
+                        timeZone: 'America/Toronto',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    }).format(new Date());
+                    await DailyJobService.processAsset({ symbol, type: assetType }, dateStr);
+                } catch (e) { console.error('Auto-analyze error:', e); }
+            });
+
             return { success: true, symbol };
         } catch (e) {
             return reply.status(409).send({ error: 'Asset already tracked' });
@@ -60,6 +89,24 @@ export async function registerRoutes(server: FastifyInstance) {
         await prisma.trackedAsset.deleteMany({
             where: { userId: authUser.id, symbol }
         });
+        return { success: true };
+    });
+
+    server.put('/api/tracked-assets/reorder', { preValidation: [server.authenticate] }, async (req, reply) => {
+        const schema = z.array(z.object({
+            symbol: z.string(),
+            order: z.number().int()
+        }));
+        const items = schema.parse(req.body);
+        const authUser = req.user as { id: string };
+
+        // Process sequentially to avoid lock contentions in sqlite
+        for (const item of items) {
+            await prisma.trackedAsset.updateMany({
+                where: { userId: authUser.id, symbol: item.symbol },
+                data: { order: item.order }
+            });
+        }
         return { success: true };
     });
 
@@ -242,6 +289,7 @@ export async function registerRoutes(server: FastifyInstance) {
 
         const selections = await prisma.trackedAsset.findMany({
             where: { userId: authUser.id },
+            orderBy: { order: 'asc' },
             include: { user: false } // Only simple details
         });
 
