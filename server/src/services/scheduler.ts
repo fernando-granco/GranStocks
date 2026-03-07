@@ -197,8 +197,18 @@ export class DailyJobService {
                 // e.g. await MarketData.refreshTrackedAssets();
 
                 console.log('[Scheduler] 15-minute periodic updates completed.');
-            } catch (e) {
+                await prisma.cachedResponse.upsert({
+                    where: { cacheKey: 'scheduler_last_run' },
+                    update: { payloadJson: JSON.stringify({ status: 'OK' }), ts: new Date(), isStale: false },
+                    create: { cacheKey: 'scheduler_last_run', payloadJson: JSON.stringify({ status: 'OK' }), ttlSeconds: 86400 * 30, source: 'SYSTEM' }
+                });
+            } catch (e: any) {
                 console.error('[Scheduler] 15-minute periodic updates failed:', e);
+                await prisma.cachedResponse.upsert({
+                    where: { cacheKey: 'scheduler_last_run' },
+                    update: { payloadJson: JSON.stringify({ status: 'ERROR', error: e.message }), ts: new Date(), isStale: false },
+                    create: { cacheKey: 'scheduler_last_run', payloadJson: JSON.stringify({ status: 'ERROR', error: e.message }), ttlSeconds: 86400 * 30, source: 'SYSTEM' }
+                });
             } finally {
                 is15MinJobRunning = false;
             }

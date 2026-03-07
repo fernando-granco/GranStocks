@@ -33,7 +33,7 @@ export async function registerRoutes(server: FastifyInstance) {
             const queryUpper = q.toUpperCase();
 
             // 1. Search finance_db.json (US stocks with names)
-            const dbPath = path.resolve(__dirname, '..', '..', 'data', 'finance_db.json');
+            const dbPath = path.resolve(__dirname, '..', 'data', 'finance_db.json');
             if (fs.existsSync(dbPath)) {
                 const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
                 const matches = data.filter((item: any) =>
@@ -97,7 +97,38 @@ export async function registerRoutes(server: FastifyInstance) {
                 });
             }
 
-            return results.slice(0, 50); // Hard cap for UI performance
+            // 5. Search cached symbols in DB
+            const dbAssets = await prisma.asset.findMany({
+                where: {
+                    OR: [
+                        { symbol: { contains: queryUpper } },
+                        { displayName: { contains: queryUpper } }
+                    ]
+                },
+                take: 15
+            });
+
+            const dbMatches = dbAssets.map(a => ({
+                symbol: a.symbol,
+                name: a.displayName || a.symbol,
+                exchange: a.exchange || 'Unknown',
+                assetType: a.type,
+                currency: a.currency || 'USD',
+                country: a.market || 'US'
+            }));
+            results.push(...dbMatches);
+
+            // Deduplicate by symbol
+            const seen = new Set();
+            const uniqueResults = [];
+            for (const r of results) {
+                if (!seen.has(r.symbol)) {
+                    seen.add(r.symbol);
+                    uniqueResults.push(r);
+                }
+            }
+
+            return uniqueResults.slice(0, 50); // Hard cap for UI performance
         } catch (e) {
             console.error('Search error', e);
             return [];
@@ -533,6 +564,15 @@ export async function registerRoutes(server: FastifyInstance) {
         });
     });
 
+    server.delete('/api/settings/prompts/:id', { preValidation: [server.authenticate] }, async (req, reply) => {
+        const authUser = req.user as { id: string };
+        const { id } = req.params as { id: string };
+        await prisma.promptTemplate.deleteMany({
+            where: { id, userId: authUser.id }
+        });
+        return { success: true };
+    });
+
     // --- Deterministic Outputs & Asset Summary API ---
     server.get('/api/asset/summary', { preValidation: [server.authenticate] }, async (req, reply) => {
         const schema = z.object({
@@ -893,6 +933,18 @@ export async function registerRoutes(server: FastifyInstance) {
         });
 
         return { status: 'Backfill started', total: targetSymbols.length };
+    });
+
+    // --- System Status ---
+    server.get('/api/system/scheduler-status', async (req, reply) => {
+        const cached = await prisma.cachedResponse.findUnique({ where: { cacheKey: 'scheduler_last_run' } });
+        if (!cached) return { status: 'UNKNOWN', ts: null };
+        try {
+            const data = JSON.parse(cached.payloadJson);
+            return { status: data.status, error: data.error, ts: cached.ts };
+        } catch {
+            return { status: 'UNKNOWN', ts: cached.ts };
+        }
     });
 
     // --- Admin ---

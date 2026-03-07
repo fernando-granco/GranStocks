@@ -90,11 +90,17 @@ export class GroupAnalysisEngine {
         const byType: Record<string, number> = {};
         const byMarket: Record<string, number> = {};
 
+        const { inferCurrency } = await import('../utils/currency');
         // 0. Resolve Currencies for all assets
         const resolvedAssets = await Promise.all(assets.map(async (asset) => {
             if (asset.currency) return asset;
             const dbAsset = await prisma.asset.findUnique({ where: { symbol: asset.symbol } });
-            return { ...asset, currency: dbAsset?.currency || (asset.assetType === 'CRYPTO' ? 'USD' : 'USD') };
+            let curr = dbAsset?.currency;
+            if (!curr) {
+                const inferred = inferCurrency(asset.symbol, asset.assetType);
+                curr = inferred.currency;
+            }
+            return { ...asset, currency: curr };
         }));
 
         // Fetch FX rates for needed currencies (Bridged through USD if needed)
@@ -155,6 +161,11 @@ export class GroupAnalysisEngine {
 
             positions.push({
                 symbol: asset.symbol,
+                nativeCurrency: asset.currency || 'USD',
+                nativePrice: latestPriceLocal,
+                baseCurrencyPrice: latestPriceBase,
+                baseCurrencyValue: valueBase,
+                // Keep backward compatibility
                 currentPrice: latestPriceLocal,
                 currentPriceBase: latestPriceBase,
                 currency: asset.currency,

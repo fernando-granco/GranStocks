@@ -248,7 +248,7 @@ export class LLMService {
         });
 
         let prompt = `Please review this deterministic market data for ${symbol ?? 'your daily portfolio summary'} on ${date}:\n\n${promptDataJson}\n\nProvide a short, 2-3 sentence financial analysis.`;
-        let isJsonMode = false;
+        let isJsonMode = true; // Default to Force Action Labels
 
         if (promptTemplate) {
             let safeData = promptDataJson;
@@ -263,7 +263,7 @@ export class LLMService {
 
             isJsonMode = promptTemplate.outputMode === 'ACTION_LABELS';
 
-            if (promptTemplate.outputMode === 'JSON') {
+            if (promptTemplate.outputMode === 'JSON_STRICT' || promptTemplate.outputMode === 'JSON') {
                 prompt += '\n\nPlease return your response ONLY as valid JSON.';
             } else if (promptTemplate.outputMode === 'MARKDOWN') {
                 prompt += '\n\nPlease format your numerical analysis and insights using well-structured Markdown format (headers, bolding, lists).';

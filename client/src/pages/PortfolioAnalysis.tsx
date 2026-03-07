@@ -48,6 +48,15 @@ export default function PortfolioAnalysis() {
         enabled: !!selectedPortfolio
     });
 
+    const { data: analysisConfigs } = useQuery({
+        queryKey: ['analysisConfigs'],
+        queryFn: async () => {
+            const res = await fetch('/api/settings/analysis');
+            if (!res.ok) return [];
+            return res.json();
+        }
+    });
+
     const colors = useMemo(() => ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316'], []);
 
     const analyzeMutation = useMutation({
@@ -130,10 +139,31 @@ export default function PortfolioAnalysis() {
                         <Briefcase className="text-indigo-500" />
                         {selectedPortfolio?.name} Analysis
                     </h1>
-                    <p className="text-neutral-500 flex items-center gap-2">
+                    <div className="text-neutral-500 flex items-center gap-2 flex-wrap">
                         <span>Institution-Grade Analytics &bull; {positions.length} Assets</span>
                         <span className="bg-indigo-500/10 text-indigo-400 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest border border-indigo-500/20">Base: {baseCurrency}</span>
-                    </p>
+                        {(() => {
+                            const activeConfig = analysisConfigs?.find((c: any) => c.isActive);
+                            const isCustom = activeConfig?.name === 'Custom Advanced';
+                            const label = isCustom ? 'Custom Weights' : `Preset: ${activeConfig?.name || 'Default Strategy'}`;
+
+                            return (
+                                <div className="group relative flex items-center ml-2">
+                                    <span className="px-2 py-0.5 bg-neutral-800 text-neutral-300 border border-neutral-700 rounded text-xs font-medium cursor-help">
+                                        Weights: {label}
+                                    </span>
+                                    {activeConfig?.configJson && (
+                                        <div className="absolute left-0 top-full mt-2 w-72 p-4 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-[10px] sm:text-xs text-left">
+                                            <div className="font-bold text-neutral-300 mb-2 border-b border-neutral-700 pb-2">Weights Configuration</div>
+                                            <pre className="text-neutral-400 font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
+                                                {activeConfig.configJson}
+                                            </pre>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </div>
                 </div>
                 <div className="flex flex-col items-end gap-3">
                     <div className="flex items-center gap-3">
@@ -309,6 +339,7 @@ export default function PortfolioAnalysis() {
                         <thead className="text-[10px] uppercase font-bold text-neutral-500 bg-black/20">
                             <tr>
                                 <th className="px-6 py-4">Asset</th>
+                                <th className="px-6 py-4 text-right">Price (Native)</th>
                                 <th className="px-6 py-4 text-right">Price ({baseCurrency})</th>
                                 <th className="px-6 py-4 text-right">Value ({baseCurrency})</th>
                                 <th className="px-6 py-4">Weight</th>
@@ -319,8 +350,15 @@ export default function PortfolioAnalysis() {
                             {positions.map((pos: any) => (
                                 <tr key={pos.symbol} className="hover:bg-white/5 transition-colors">
                                     <td className="px-6 py-5 font-bold text-white">{pos.symbol}</td>
-                                    <td className="px-6 py-5 text-right font-mono">{pos.currentPrice.toLocaleString(undefined, { style: 'currency', currency: baseCurrency })}</td>
-                                    <td className="px-6 py-5 text-right font-mono font-bold">{pos.currentValue.toLocaleString(undefined, { style: 'currency', currency: baseCurrency })}</td>
+                                    <td className="px-6 py-5 text-right font-mono">
+                                        {pos.nativePrice?.toLocaleString(undefined, { style: 'currency', currency: pos.nativeCurrency || pos.currency || 'USD' })}
+                                    </td>
+                                    <td className="px-6 py-5 text-right font-mono">
+                                        {pos.baseCurrencyPrice?.toLocaleString(undefined, { style: 'currency', currency: baseCurrency }) || pos.currentPriceBase?.toLocaleString(undefined, { style: 'currency', currency: baseCurrency })}
+                                    </td>
+                                    <td className="px-6 py-5 text-right font-mono font-bold">
+                                        {pos.baseCurrencyValue?.toLocaleString(undefined, { style: 'currency', currency: baseCurrency }) || pos.currentValue?.toLocaleString(undefined, { style: 'currency', currency: baseCurrency })}
+                                    </td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
                                             <div className="w-20 h-1.5 bg-neutral-800 rounded-full overflow-hidden">

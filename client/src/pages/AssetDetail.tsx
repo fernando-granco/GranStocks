@@ -4,6 +4,7 @@ import { Cpu, AlertTriangle, Sparkles, Activity, ShieldAlert, BarChart3, Databas
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '../utils';
 import PriceDisplay from '../components/PriceDisplay';
+import { inferCurrency } from '../utils/currency';
 
 const CustomizedCandlestick = (props: any) => {
     const { x, y, width, height, payload } = props;
@@ -63,7 +64,6 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
             return res.json();
         }
     });
-    const activePresetName = analysisConfigs?.find((c: any) => c.isActive)?.name || 'Default Strategy';
 
     const { data: fundamentals, isLoading: isLoadingFundamentals } = useQuery({
         queryKey: ['assetFundamentals', symbol, assetType],
@@ -194,14 +194,19 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                             </h1>
                             <div className="flex items-center gap-4 mt-2">
                                 <div className="flex flex-col">
-                                    <PriceDisplay
-                                        nativePrice={summary.quote?.price || 0}
-                                        nativeCcy={summary.asset?.currency || 'USD'}
-                                        usdEqPrice={summary.quote?.priceUSD}
-                                        isUsdNative={summary.asset?.currency === 'USD'}
-                                        primaryClassName="text-3xl font-mono font-bold text-white mb-1"
-                                        secondaryClassName="text-sm mt-0.5 text-indigo-400 font-medium"
-                                    />
+                                    {(() => {
+                                        const { currency, isUsdNative } = inferCurrency(symbol, assetType);
+                                        return (
+                                            <PriceDisplay
+                                                nativePrice={summary.quote?.price || 0}
+                                                nativeCcy={currency}
+                                                usdEqPrice={summary.quote?.priceUSD}
+                                                isUsdNative={isUsdNative}
+                                                primaryClassName="text-3xl font-mono font-bold text-white mb-1"
+                                                secondaryClassName="text-sm mt-0.5 text-indigo-400 font-medium"
+                                            />
+                                        );
+                                    })()}
                                 </div>
                                 <div className="ml-4">
                                     <span className={cn("text-xl font-bold", (summary.quote?.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
@@ -213,9 +218,27 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                 </div>
                             </div>
                             <div className="mt-3 flex items-center gap-2">
-                                <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-xs font-medium">
-                                    Analyzing via: {activePresetName}
-                                </span>
+                                {(() => {
+                                    const activeConfig = analysisConfigs?.find((c: any) => c.isActive);
+                                    const isCustom = activeConfig?.name === 'Custom Advanced';
+                                    const label = isCustom ? 'Custom Weights' : `Preset: ${activeConfig?.name || 'Default Strategy'}`;
+
+                                    return (
+                                        <div className="group relative flex items-center">
+                                            <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-xs font-medium cursor-help">
+                                                Active Weights: {label}
+                                            </span>
+                                            {activeConfig?.configJson && (
+                                                <div className="absolute left-0 top-full mt-2 w-72 p-4 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 text-[10px] sm:text-xs">
+                                                    <div className="font-bold text-neutral-300 mb-2 border-b border-neutral-700 pb-2">Weights Configuration</div>
+                                                    <pre className="text-neutral-400 font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
+                                                        {activeConfig.configJson}
+                                                    </pre>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                                 {oneDayPrediction && (
                                     <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-0.5" title={oneDayPrediction.explanationText}>
                                         <Cpu size={12} className="text-amber-400" />

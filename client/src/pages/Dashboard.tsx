@@ -86,6 +86,16 @@ export default function Dashboard({ onSelect }: { onSelect: (symbol: string, ass
         }
     });
 
+    const { data: systemStatus } = useQuery({
+        queryKey: ['systemStatus'],
+        queryFn: async () => {
+            const res = await fetch('/api/system/scheduler-status');
+            if (!res.ok) return null;
+            return res.json();
+        },
+        refetchInterval: 60000 // Refetch every minute
+    });
+
     const queryClient = useQueryClient();
     const untrackMutation = useMutation({
         mutationFn: async (symbol: string) => {
@@ -111,7 +121,22 @@ export default function Dashboard({ onSelect }: { onSelect: (symbol: string, ass
             {(!items || items.length === 0) && hideEmptyMarketOverview ? null : (
                 <>
                     <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-2xl font-bold tracking-tight">{t('dashboard.market_overview')}</h2>
+                        <div>
+                            <h2 className="text-2xl font-bold tracking-tight">{t('dashboard.market_overview')}</h2>
+                            <div className="text-sm font-medium mt-1">
+                                {systemStatus?.ts ? (
+                                    <span className="flex items-center gap-1.5 text-neutral-400">
+                                        <div className={`w-2 h-2 rounded-full ${systemStatus.status === 'OK' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
+                                        Last system update: {new Date(systemStatus.ts).toLocaleTimeString()} {systemStatus.status === 'ERROR' && <span className="text-rose-400 ml-1">({systemStatus.error || 'Failed'})</span>}
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-1.5 text-neutral-500">
+                                        <div className="w-2 h-2 rounded-full bg-neutral-600" />
+                                        Waiting for first scheduler run...
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                         {['ADMIN', 'SUPERADMIN'].includes(user?.role || '') && (
                             <button
                                 onClick={() => runJobMutation.mutate()}

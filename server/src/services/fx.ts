@@ -71,7 +71,7 @@ export class FXService {
     static async getHistoricalRates(curr: string, days: number = 365): Promise<Map<string, number>> {
         const rate = await this.getFxRate(curr, 'USD'); // Fallback to current rate
         const map = new Map<string, number>();
-        // Return an empty map to prevent breaking existing logic that checks map.get(date)
+        map.set('fallback', rate);
         return map;
     }
 }

@@ -57,7 +57,7 @@ export default function Settings() {
     const [configModel, setConfigModel] = useState('');
     const [configBaseUrl, setConfigBaseUrl] = useState('');
 
-    const [isActionLabels, setIsActionLabels] = useState(false);
+    const [isActionLabels, setIsActionLabels] = useState(true);
     const queryClient = useQueryClient();
     const { t } = useTranslation();
 
@@ -226,6 +226,17 @@ export default function Settings() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['promptConfigs'] });
             alert('Prompt Template Saved Successfully!');
+        }
+    });
+
+    const deletePromptMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const res = await fetch(`/api/settings/prompts/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to restore default template');
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['promptConfigs'] });
+            alert('Template Reset to Default Successfully!');
         }
     });
 
@@ -604,19 +615,45 @@ export default function Settings() {
                                 <h4 className="text-sm font-medium text-neutral-400 mb-3">Saved Prompt Templates:</h4>
                                 {promptConfigs.filter((c: any) => c.enabled).map((c: any) => (
                                     <div key={c.id} className="bg-neutral-950/50 p-3 rounded border border-indigo-500/30 flex justify-between items-center mb-2">
-                                        <div>
+                                        <div className="flex-1 mr-4 overflow-hidden">
                                             <span className="text-indigo-400 text-sm font-medium block">{c.role}</span>
-                                            <span className="text-xs text-neutral-500 font-mono inline-block truncate max-w-[200px]">{c.templateText}</span>
+                                            <span className="text-xs text-neutral-500 font-mono inline-block truncate w-full">{c.templateText}</span>
                                         </div>
-                                        {c.outputMode === 'ACTION_LABELS' && (
-                                            <span className="text-xs text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded uppercase">Action Labels ON</span>
-                                        )}
-                                        {c.outputMode === 'MARKDOWN' && (
-                                            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded uppercase">Markdown</span>
-                                        )}
-                                        {c.outputMode === 'JSON' && (
-                                            <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded uppercase">JSON</span>
-                                        )}
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            {c.outputMode === 'ACTION_LABELS' && (
+                                                <span className="text-xs text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded uppercase font-semibold">Action Labels</span>
+                                            )}
+                                            {c.outputMode === 'MARKDOWN' && (
+                                                <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded uppercase font-semibold">Markdown</span>
+                                            )}
+                                            {c.outputMode === 'JSON_STRICT' && (
+                                                <span className="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded uppercase font-semibold">JSON</span>
+                                            )}
+                                            <button
+                                                className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-indigo-400 text-xs rounded transition-colors ml-2"
+                                                onClick={() => {
+                                                    setPromptRole(c.role);
+                                                    setPromptText(c.templateText);
+                                                    setPromptOutputMode(c.outputMode === 'ACTION_LABELS' ? 'TEXT_ONLY' : c.outputMode);
+                                                    setIsActionLabels(c.outputMode === 'ACTION_LABELS');
+                                                    window.scrollTo({ top: 400, behavior: 'smooth' });
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs rounded border border-rose-500/20 transition-colors disabled:opacity-50"
+                                                onClick={() => {
+                                                    if (window.confirm('Reset this template back to the system default?')) {
+                                                        deletePromptMutation.mutate(c.id);
+                                                    }
+                                                }}
+                                                disabled={deletePromptMutation.isPending}
+                                                title="Reset to Default"
+                                            >
+                                                Reset
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
