@@ -368,7 +368,7 @@ export default async function universeRoutes(server: FastifyInstance) {
                 language = 'en';
             }
 
-            const narrativeText = await LLMService.generateNarrative(config.id, authUser.id, `Group: ${universe.name} `, date, promptJson, 'CONSENSUS', language);
+            const narrativeText = await LLMService.generateNarrative(config.id, authUser.id, `Group: ${universe.name}`, date, promptJson, 'UNIVERSE', language);
 
             const narrative = await prisma.aiNarrative.create({
                 data: {

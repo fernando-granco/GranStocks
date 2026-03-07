@@ -113,6 +113,21 @@ export default function UniverseDetail() {
 
     const universe = resolveData?.universe;
 
+    if (!universe && !isLoading) {
+        return (
+            <div className="space-y-6 max-w-7xl mx-auto">
+                <button onClick={() => navigate('/app')} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 mb-4">
+                    <ArrowLeft size={16} /> Back to Dashboard
+                </button>
+                <div className="p-12 border border-dashed border-neutral-800 rounded-2xl text-center bg-neutral-900/20 mt-8">
+                    <AlertCircle className="mx-auto h-12 w-12 text-neutral-600 mb-4" />
+                    <h3 className="text-lg font-medium text-neutral-300">Universe not found</h3>
+                    <p className="text-neutral-500 mt-1">The specified universe could not be loaded or does not exist.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             <button onClick={() => navigate('/app')} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 mb-4">
@@ -153,7 +168,7 @@ export default function UniverseDetail() {
                 </div>
             )}
 
-            {analytics && analytics.summary && (
+            {items && items.length > 0 && analytics && analytics.summary && (
                 <>
                     {/* Quantitative Summary Cards */}
                     <div className="flex justify-between items-center mb-2 mt-8">
@@ -243,7 +258,7 @@ export default function UniverseDetail() {
                 </>
             )}
             {/* Historical Compare Plot */}
-            {analytics && analytics.performance && analytics.performance.history && (
+            {items && items.length > 0 && analytics && analytics.performance && analytics.performance.history && (
                 <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
                     <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                         <ChartIcon size={18} className="text-indigo-400" />

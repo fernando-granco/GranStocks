@@ -212,7 +212,11 @@ export default async function portfolioRoutes(server: FastifyInstance) {
 
     // Rich Analytical Summary
     server.get('/analytics', async (req: FastifyRequest, reply: FastifyReply) => {
-        const { portfolioId } = req.query as { portfolioId?: string };
+        const schema = z.object({
+            portfolioId: z.string().uuid().optional(),
+            range: z.enum(['1M', '3M', '6M', 'YTD', '1Y', 'ALL_TIME']).default('ALL_TIME')
+        });
+        const { portfolioId, range } = schema.parse(req.query);
         const authUser = req.user as { id: string };
 
         const where: any = { userId: authUser.id };
@@ -227,12 +231,23 @@ export default async function portfolioRoutes(server: FastifyInstance) {
             if (p) baseCurrency = p.baseCurrency;
         }
 
+        let days = 365 * 5;
+        if (range === '1M') days = 30;
+        else if (range === '3M') days = 90;
+        else if (range === '6M') days = 180;
+        else if (range === '1Y') days = 365;
+        else if (range === 'YTD') {
+            const now = new Date();
+            const startOfYear = new Date(now.getFullYear(), 0, 1);
+            days = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 3600 * 24));
+        }
+
         const { PriceHistoryService } = await import('../services/price-history');
         const { GroupAnalysisEngine } = await import('../services/group-analysis');
 
         const priceHistories: Record<string, any> = {};
         await Promise.all(positions.map(async (p) => {
-            const candles = await PriceHistoryService.getCandles(p.symbol, p.assetType as 'STOCK' | 'CRYPTO', 365);
+            const candles = await PriceHistoryService.getCandles(p.symbol, p.assetType as 'STOCK' | 'CRYPTO', days);
             if (candles && (candles as any).s === 'ok') priceHistories[p.symbol] = candles;
         }));
 
@@ -289,7 +304,7 @@ export default async function portfolioRoutes(server: FastifyInstance) {
 
         const { LLMService } = await import('../services/llm');
         let language = (req.headers['accept-language'] as string)?.split(',')[0] || 'en';
-        const narrative = await LLMService.generateNarrative(config.id, authUser.id, `Portfolio`, date, promptJson, 'CONSENSUS', language);
+        const narrative = await LLMService.generateNarrative(config.id, authUser.id, `Portfolio`, date, promptJson, 'PORTFOLIO', language);
         return { narrative };
     });
 }

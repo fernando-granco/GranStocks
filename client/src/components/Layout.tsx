@@ -70,7 +70,7 @@ export default function Layout() {
                             className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors"
                             title="Toggle Language"
                         >
-                            <span className="text-lg">{i18n.language === 'en' ? '🇺🇸' : '🇧🇷'}</span>
+                            <span className="text-sm font-bold text-neutral-400 bg-white/5 px-1.5 py-0.5 rounded">{i18n.language === 'en' ? 'EN' : 'PT'}</span>
                         </button>
 
                         <button

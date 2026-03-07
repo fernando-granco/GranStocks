@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Cpu, AlertTriangle, Sparkles, Activity, ShieldAlert, BarChart3, Database, FlaskConical, Blocks, Server, Newspaper } from 'lucide-react';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '../utils';
+import PriceDisplay from '../components/PriceDisplay';
 
 const CustomizedCandlestick = (props: any) => {
     const { x, y, width, height, payload } = props;
@@ -193,20 +194,14 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                             </h1>
                             <div className="flex items-center gap-4 mt-2">
                                 <div className="flex flex-col">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-mono font-bold text-white">
-                                            {summary.quote?.price != null ? summary.quote.price.toFixed(2) : '---'}
-                                        </span>
-                                        {summary.asset?.currency && (
-                                            <span className="text-xs font-bold text-neutral-500 uppercase">{summary.asset.currency}</span>
-                                        )}
-                                    </div>
-                                    {summary.asset?.currency && summary.asset.currency !== 'USD' && summary.quote?.priceUSD != null && (
-                                        <div className="flex items-center gap-2 mt-0.5 text-indigo-400 font-medium">
-                                            <span className="text-sm">≈ ${summary.quote.priceUSD.toFixed(2)}</span>
-                                            <span className="text-[10px] uppercase opacity-60">USD</span>
-                                        </div>
-                                    )}
+                                    <PriceDisplay
+                                        nativePrice={summary.quote?.price || 0}
+                                        nativeCcy={summary.asset?.currency || 'USD'}
+                                        usdEqPrice={summary.quote?.priceUSD}
+                                        isUsdNative={summary.asset?.currency === 'USD'}
+                                        primaryClassName="text-3xl font-mono font-bold text-white mb-1"
+                                        secondaryClassName="text-sm mt-0.5 text-indigo-400 font-medium"
+                                    />
                                 </div>
                                 <div className="ml-4">
                                     <span className={cn("text-xl font-bold", (summary.quote?.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
@@ -604,7 +599,7 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                                 }
 
                                                 return (
-                                                    <div key={idx} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                                                    <div key={idx} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 shrink-0">
                                                         <div className="flex justify-between items-start mb-3">
                                                             <div className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">
                                                                 {n.providerUsed}
@@ -631,7 +626,7 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <div className="prose prose-invert prose-sm">
+                                                        <div className="prose prose-invert prose-sm max-h-80 overflow-y-auto custom-scrollbar pr-2">
                                                             {narrativeText}
                                                         </div>
                                                         {parsedAction && (

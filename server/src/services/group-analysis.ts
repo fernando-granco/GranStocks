@@ -126,6 +126,7 @@ export class GroupAnalysisEngine {
                 }
             }
 
+            const firstPriceLocal = rawC.length > 0 ? rawC[0] : 0;
             const latestPriceLocal = rawC.length > 0 ? rawC[rawC.length - 1] : (asset.averageCost || 0);
 
             // Current rate normalization: Local -> Base
@@ -133,7 +134,8 @@ export class GroupAnalysisEngine {
 
             const latestPriceBase = latestPriceLocal * rateLocalToBase;
             const qty = asset.quantity || 1;
-            const costBase = (asset.averageCost || latestPriceLocal) * rateLocalToBase;
+            const fallbackCost = firstPriceLocal > 0 ? firstPriceLocal : latestPriceLocal;
+            const costBase = (asset.averageCost || fallbackCost) * rateLocalToBase;
 
             const valueBase = latestPriceBase * qty;
             const cbBase = costBase * qty;
@@ -199,12 +201,14 @@ export class GroupAnalysisEngine {
         assetSeries.forEach(s => s.tsMap.forEach((_, ts) => allDates.add(ts)));
         const sortedDates = Array.from(allDates).sort((a, b) => a - b);
 
-        const alignedHistory: ReturnSeries[] = [];
+        const alignedHistory: any[] = [];
         const lastKnownPrices = new Map<string, number>();
+        const basePrices = new Map<string, number>();
 
         for (const dateTs of sortedDates) {
             let dailyTotalBase = 0;
             const dateStr = new Date(dateTs).toISOString().split('T')[0];
+            const historyPoint: any = { timestamp: dateTs };
 
             for (const asset of assetSeries) {
                 let price = asset.tsMap.get(dateTs);
@@ -215,6 +219,13 @@ export class GroupAnalysisEngine {
                 }
 
                 if (price !== undefined) {
+                    if (!basePrices.has(asset.symbol)) {
+                        basePrices.set(asset.symbol, price);
+                    }
+                    const basePrice = basePrices.get(asset.symbol)!;
+                    const normReturn = basePrice > 0 ? ((price - basePrice) / basePrice) * 100 : 0;
+                    historyPoint[asset.symbol] = normReturn;
+
                     // Local -> USD -> Base
                     let rateAssetToUSD = 1.0;
                     if (asset.currency !== 'USD') {
@@ -232,7 +243,8 @@ export class GroupAnalysisEngine {
                     dailyTotalBase += price * asset.qty * rateAssetToUSD * rateUSDToBase;
                 }
             }
-            alignedHistory.push({ timestamp: dateTs, value: dailyTotalBase });
+            historyPoint.value = dailyTotalBase;
+            alignedHistory.push(historyPoint);
         }
 
         const groupValues = alignedHistory.map(h => h.value);

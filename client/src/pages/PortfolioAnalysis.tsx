@@ -9,11 +9,12 @@ export default function PortfolioAnalysis() {
     const navigate = useNavigate();
     const { portfolios, selectedPortfolio, setSelectedPortfolioId } = usePortfolios();
     const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+    const [timeSpan, setTimeSpan] = useState('6M');
 
     const { data: analytics, isLoading } = useQuery({
-        queryKey: ['portfolio-analytics', selectedPortfolio?.id],
+        queryKey: ['portfolio-analytics', selectedPortfolio?.id, timeSpan],
         queryFn: async () => {
-            const url = selectedPortfolio ? `/api/portfolio/analytics?portfolioId=${selectedPortfolio.id}` : '/api/portfolio/analytics';
+            const url = selectedPortfolio ? `/api/portfolio/analytics?portfolioId=${selectedPortfolio.id}&range=${timeSpan}` : `/api/portfolio/analytics?range=${timeSpan}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error('Failed to load portfolio analytics');
             return res.json();
@@ -99,14 +100,28 @@ export default function PortfolioAnalysis() {
                         <span className="bg-indigo-500/10 text-indigo-400 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest border border-indigo-500/20">Base: {baseCurrency}</span>
                     </p>
                 </div>
-                <button
-                    onClick={() => analyzeMutation.mutate()}
-                    disabled={analyzeMutation.isPending}
-                    className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 disabled:opacity-50 font-bold rounded-lg flex items-center gap-2 transition-colors uppercase text-xs tracking-wider"
-                >
-                    <Sparkles size={16} />
-                    {analyzeMutation.isPending ? 'Generating...' : 'Run AI Analysis'}
-                </button>
+                <div className="flex items-center gap-3">
+                    <select
+                        value={timeSpan}
+                        onChange={(e) => setTimeSpan(e.target.value)}
+                        className="bg-neutral-900 border border-neutral-700 text-neutral-300 text-sm rounded-lg px-3 py-2 outline-none cursor-pointer hover:text-white transition-colors"
+                    >
+                        <option value="1M">1 Month</option>
+                        <option value="3M">3 Months</option>
+                        <option value="6M">6 Months</option>
+                        <option value="YTD">YTD</option>
+                        <option value="1Y">1 Year</option>
+                        <option value="ALL_TIME">All Time</option>
+                    </select>
+                    <button
+                        onClick={() => analyzeMutation.mutate()}
+                        disabled={analyzeMutation.isPending}
+                        className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 disabled:opacity-50 font-bold rounded-lg flex items-center gap-2 transition-colors uppercase text-xs tracking-wider h-[38px]"
+                    >
+                        <Sparkles size={16} />
+                        <span className="hidden sm:inline">{analyzeMutation.isPending ? 'Generating...' : 'Run AI Analysis'}</span>
+                    </button>
+                </div>
             </div>
 
             {analysisResult && (
@@ -162,7 +177,7 @@ export default function PortfolioAnalysis() {
 
                 <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 lg:col-span-2 shadow-sm">
                     <h2 className="text-sm font-bold text-white uppercase tracking-widest mb-6 flex items-center gap-2">
-                        <ChartIcon size={16} className="text-indigo-400" /> Aggregate Performance (1 YR)
+                        <ChartIcon size={16} className="text-indigo-400" /> Aggregate Performance
                     </h2>
                     <div className="h-[250px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -179,6 +194,39 @@ export default function PortfolioAnalysis() {
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
+                </div>
+            </div>
+
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-sm">
+                <h2 className="text-sm font-bold text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <ChartIcon size={16} className="text-amber-400" /> Component Return Comparison (Normalized %)
+                </h2>
+                <div className="h-[350px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={performance.history.map((h: any) => ({ ...h, dateStr: new Date(h.timestamp).toLocaleDateString() }))} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
+                            <XAxis dataKey="dateStr" stroke="#525252" fontSize={10} tickMargin={10} minTickGap={40} />
+                            <YAxis stroke="#525252" fontSize={10} domain={['auto', 'auto']} tickFormatter={(v) => v.toFixed(0) + '%'} />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#171717', borderColor: '#262626', borderRadius: '8px' }}
+                                labelStyle={{ color: '#a3a3a3' }}
+                                formatter={(value: any) => [Number(value).toFixed(2) + '%']}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                            {positions.map((pos: any, i: number) => (
+                                <Line
+                                    key={pos.symbol}
+                                    type="monotone"
+                                    dataKey={pos.symbol}
+                                    name={pos.symbol}
+                                    stroke={colors[i % colors.length]}
+                                    strokeWidth={2}
+                                    dot={false}
+                                    activeDot={{ r: 4 }}
+                                />
+                            ))}
+                        </LineChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 

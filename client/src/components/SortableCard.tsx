@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '../utils';
 import { Star, GripVertical, Database } from 'lucide-react';
+import PriceDisplay from './PriceDisplay';
 
 export function SortableCard({ item, onClick, onUntrack }: { item: any; onClick: () => void; onUntrack: (symbol: string) => void }) {
     const {
@@ -73,16 +74,14 @@ export function SortableCard({ item, onClick, onUntrack }: { item: any; onClick:
                     <div className="space-y-4">
                         <div className="flex flex-col gap-1">
                             <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Market Price</div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-2xl font-mono font-bold text-white">
-                                    {ind.lastPrice.toLocaleString(undefined, { style: 'currency', currency: currency })}
-                                </span>
-                            </div>
-                            {isNonUSD && item.quote?.priceUSD && (
-                                <div className="text-xs text-indigo-400/80 font-medium">
-                                    ≈ ${item.quote.priceUSD.toFixed(2)} <span className="text-[9px] opacity-60">USD</span>
-                                </div>
-                            )}
+                            <PriceDisplay
+                                nativePrice={ind.lastPrice}
+                                nativeCcy={currency}
+                                usdEqPrice={item.quote?.priceUSD}
+                                isUsdNative={!isNonUSD}
+                                primaryClassName="text-2xl font-mono font-bold text-white"
+                                secondaryClassName="text-xs text-indigo-400/80 font-medium mt-0.5"
+                            />
                         </div>
                         <div className="flex justify-between items-center bg-black/40 rounded-lg px-3 py-2 border border-neutral-800/50">
                             <div className="flex flex-col">

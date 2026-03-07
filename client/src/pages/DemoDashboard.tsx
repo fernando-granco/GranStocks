@@ -65,7 +65,7 @@ export default function DemoDashboard() {
                             className="bg-neutral-800 hover:bg-neutral-700 text-white p-2 rounded-lg transition-colors flex items-center justify-center"
                             title="Toggle Language"
                         >
-                            <span className="text-xl leading-none">{i18n.language === 'en' ? '🇺🇸' : '🇧🇷'}</span>
+                            <span className="text-sm font-bold text-neutral-400 bg-white/5 px-2 py-1 rounded">{i18n.language === 'en' ? 'EN' : 'PT'}</span>
                         </button>
                         <button onClick={() => navigate('/demo/screener')} className="text-sm text-neutral-400 hover:text-white transition-colors">{t('demo.preview')}</button>
                         <button onClick={() => navigate('/register')} className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-md transition-colors font-medium">{t('landing.btn_create_account')}</button>

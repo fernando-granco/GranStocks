@@ -116,7 +116,7 @@ export async function registerRoutes(server: FastifyInstance) {
 
         await prisma.asset.upsert({
             where: { symbol },
-            update: { displayName, isActive: true, type: assetType, market },
+            update: { displayName, isActive: true, type: assetType, market, currency },
             create: { symbol, displayName, exchange, type: assetType, market, currency }
         });
 
@@ -281,6 +281,58 @@ export async function registerRoutes(server: FastifyInstance) {
                 encryptedApiKey,
                 keyLast4
             }
+        });
+
+        return { id: config.id, name: config.name, provider: config.provider, keyLast4: config.keyLast4 };
+    });
+
+    server.patch('/api/settings/llm/:id', { preValidation: [server.authenticate] }, async (req, reply) => {
+        const { id } = req.params as { id: string };
+        const authUser = req.user as { id: string };
+
+        const existing = await prisma.userLLMConfig.findUnique({ where: { id } });
+        if (!existing || existing.userId !== authUser.id) {
+            return reply.status(404).send({ error: 'Config not found' });
+        }
+
+        const schema = z.object({
+            name: z.string().max(100).optional(),
+            provider: z.enum(['OPENAI', 'ANTHROPIC', 'GEMINI', 'XAI', 'DEEPSEEK', 'GROQ', 'TOGETHER', 'OPENAI_COMPAT']).optional(),
+            apiKey: z.string().optional(),
+            model: z.string().optional(),
+            baseUrl: z.string().optional()
+        });
+
+        const { name, provider, apiKey, model, baseUrl } = schema.parse(req.body);
+
+        let validatedBaseUrl: string | null | undefined = baseUrl;
+        // Keep existing if baseUrl is undefined, or clear if empty string
+        if (baseUrl !== undefined) {
+            if (baseUrl) {
+                try {
+                    validatedBaseUrl = await validateBaseUrl(baseUrl, provider === 'OPENAI_COMPAT' || existing.provider === 'OPENAI_COMPAT');
+                } catch (err: any) {
+                    return reply.status(400).send({ error: err.message });
+                }
+            } else {
+                validatedBaseUrl = null;
+            }
+        }
+
+        const updateData: any = {};
+        if (name) updateData.name = name;
+        if (provider) updateData.provider = provider;
+        if (model) updateData.model = model;
+        if (baseUrl !== undefined) updateData.baseUrl = validatedBaseUrl;
+
+        if (apiKey) {
+            updateData.encryptedApiKey = encryptText(apiKey);
+            updateData.keyLast4 = apiKey.length > 4 ? apiKey.slice(-4) : apiKey;
+        }
+
+        const config = await prisma.userLLMConfig.update({
+            where: { id },
+            data: updateData
         });
 
         return { id: config.id, name: config.name, provider: config.provider, keyLast4: config.keyLast4 };

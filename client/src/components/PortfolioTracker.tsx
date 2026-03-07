@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { usePortfolios } from '../context/PortfolioContext';
 import { Trash2 } from 'lucide-react';
+import PriceDisplay from './PriceDisplay';
 
 export interface PortfolioPosition {
     id: string;
@@ -23,10 +24,12 @@ export interface PortfolioPosition {
 
 interface PortfolioTrackerProps {
     onPositionsUpdated?: () => void;
+    portfolio?: any;
 }
 
-export function PortfolioTracker({ onPositionsUpdated }: PortfolioTrackerProps) {
-    const { selectedPortfolio } = usePortfolios();
+export function PortfolioTracker({ onPositionsUpdated, portfolio }: PortfolioTrackerProps) {
+    const { selectedPortfolio: contextSelectedPortfolio } = usePortfolios();
+    const activePortfolio = portfolio || contextSelectedPortfolio;
     const [positions, setPositions] = useState<PortfolioPosition[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -40,10 +43,10 @@ export function PortfolioTracker({ onPositionsUpdated }: PortfolioTrackerProps) 
     const [errorMsg, setErrorMsg] = useState('');
 
     const fetchPositions = useCallback(async () => {
-        if (!selectedPortfolio) return;
+        if (!activePortfolio) return;
         setLoading(true);
         try {
-            const res = await fetch(`/api/portfolio?portfolioId=${selectedPortfolio.id}`);
+            const res = await fetch(`/api/portfolio?portfolioId=${activePortfolio.id}`);
             if (res.status === 401) return;
             if (res.ok) {
                 const data = await res.json();
@@ -54,7 +57,7 @@ export function PortfolioTracker({ onPositionsUpdated }: PortfolioTrackerProps) 
         } finally {
             setLoading(false);
         }
-    }, [selectedPortfolio]);
+    }, [activePortfolio]);
 
     useEffect(() => {
         fetchPositions();
@@ -62,14 +65,14 @@ export function PortfolioTracker({ onPositionsUpdated }: PortfolioTrackerProps) 
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedPortfolio) return;
+        if (!activePortfolio) return;
         setErrorMsg('');
         try {
             const res = await fetch('/api/portfolio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    portfolioId: selectedPortfolio.id,
+                    portfolioId: activePortfolio.id,
                     symbol: formSymbol.toUpperCase(),
                     assetType: formAssetType,
                     quantity: parseFloat(formQty),
@@ -109,7 +112,7 @@ export function PortfolioTracker({ onPositionsUpdated }: PortfolioTrackerProps) 
         }
     };
 
-    const baseCurrency = selectedPortfolio?.baseCurrency || 'USD';
+    const baseCurrency = activePortfolio?.baseCurrency || 'USD';
 
     return (
         <div className="bg-neutral-900/40 p-6">
@@ -230,7 +233,6 @@ export function PortfolioTracker({ onPositionsUpdated }: PortfolioTrackerProps) 
                                             <div className="flex flex-col">
                                                 <span className="font-bold text-white flex items-center gap-2">
                                                     {p.symbol}
-                                                    {isNativeDiff && <span className="text-[9px] bg-neutral-800 text-neutral-400 px-1 py-0.5 rounded uppercase font-black">{p.currency}</span>}
                                                 </span>
                                             </div>
                                         </td>
@@ -239,14 +241,15 @@ export function PortfolioTracker({ onPositionsUpdated }: PortfolioTrackerProps) 
                                             {p.averageCost.toLocaleString(undefined, { style: 'currency', currency: p.currency })}
                                         </td>
                                         <td className="px-4 py-4 text-right text-white">
-                                            <div className="flex flex-col items-end">
-                                                <span className="font-mono font-bold">{p.currentPrice.toLocaleString(undefined, { style: 'currency', currency: p.currency })}</span>
-                                                {isNativeDiff && (
-                                                    <span className="text-[10px] text-neutral-500 font-mono">
-                                                        ≈ {p.currentPriceBase.toLocaleString(undefined, { style: 'currency', currency: baseCurrency })}
-                                                    </span>
-                                                )}
-                                            </div>
+                                            <PriceDisplay
+                                                nativePrice={p.currentPrice}
+                                                nativeCcy={p.currency}
+                                                usdEqPrice={isNativeDiff ? p.currentPriceBase : undefined}
+                                                baseCcyLabel={baseCurrency}
+                                                isUsdNative={!isNativeDiff}
+                                                primaryClassName="font-mono font-bold text-white"
+                                                secondaryClassName="text-[10px] text-neutral-500 font-mono mt-0.5"
+                                            />
                                         </td>
                                         <td className="px-4 py-4 text-right font-mono font-bold text-white">
                                             {p.currentValue.toLocaleString(undefined, { style: 'currency', currency: baseCurrency })}

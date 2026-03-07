@@ -5,6 +5,7 @@ import { BarChart3, Play, AlertTriangle, Info, Star } from 'lucide-react';
 import { cn } from '../utils';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import PriceDisplay from '../components/PriceDisplay';
 import toast from 'react-hot-toast';
 
 export default function Screener() {
@@ -163,11 +164,11 @@ export default function Screener() {
             {selectedUniverses.length > 0 && (
                 <div className="flex flex-wrap gap-2 border-b border-neutral-800 pb-px">
                     {[
-                        { id: 'SP500', label: '🇺🇸 S&P 500' },
-                        { id: 'NASDAQ100', label: '🇺🇸 NASDAQ 100' },
-                        { id: 'TSX60', label: '🇨🇦 TSX 60' },
-                        { id: 'IBOV', label: '🇧🇷 IBOVESPA' },
-                        { id: 'CRYPTO', label: '🪙 Crypto' }
+                        { id: 'SP500', label: 'S&P 500' },
+                        { id: 'NASDAQ100', label: 'NASDAQ 100' },
+                        { id: 'TSX60', label: 'TSX 60' },
+                        { id: 'IBOV', label: 'IBOVESPA' },
+                        { id: 'CRYPTO', label: 'Crypto' }
                     ].filter(u => selectedUniverses.includes(u.id)).map(u => (
                         <button
                             key={u.id}
@@ -221,11 +222,10 @@ export default function Screener() {
                         const flags = c.riskFlagsJson ? JSON.parse(c.riskFlagsJson) : [];
                         const isCrypto = c.universeType === 'CRYPTO';
 
-                        let marketBadge = '🇺🇸 US';
                         let currencyBadge = 'USD';
-                        if (c.universeName === 'TSX60') { marketBadge = '🇨🇦 CA'; currencyBadge = 'CAD'; }
-                        else if (c.universeName === 'IBOV') { marketBadge = '🇧🇷 BR'; currencyBadge = 'BRL'; }
-                        else if (isCrypto) { marketBadge = '🪙 Crypto'; currencyBadge = 'USDT'; }
+                        if (c.universeName === 'TSX60') { currencyBadge = 'CAD'; }
+                        else if (c.universeName === 'IBOV') { currencyBadge = 'BRL'; }
+                        else if (isCrypto) { currencyBadge = 'USD'; }
 
                         return (
                             <div
@@ -242,24 +242,24 @@ export default function Screener() {
                                             <h2 className="text-2xl font-bold">{c.symbol}</h2>
                                         </div>
                                         <div className="flex items-center gap-2 pl-6">
-                                            <span className="font-mono text-xl text-neutral-200 font-medium">
+                                            <div className="flex flex-col font-mono text-xl text-neutral-200 font-medium">
                                                 {livePrices[c.symbol] !== undefined ? (
                                                     livePrices[c.symbol] !== null ? (
-                                                        <span>
-                                                            {currencyBadge !== 'USD' && <span className="text-xs text-neutral-500 mr-1">{currencyBadge}</span>}
-                                                            {livePrices[c.symbol]!.toFixed(2)}
-                                                            {currencyBadge !== 'USD' && (
-                                                                <span className="text-sm text-indigo-400/80 ml-2" title="USD Equivalent">
-                                                                    ≈ ${typeof livePrices[`${c.symbol}_USD`] === 'number' ? livePrices[`${c.symbol}_USD`]!.toFixed(2) : '...'}
-                                                                </span>
-                                                            )}
-                                                            {currencyBadge === 'USD' && <span className="text-xs text-neutral-500 ml-1">USD</span>}
-                                                        </span>
-                                                    ) : 'N/A'
+                                                        <>
+                                                            <PriceDisplay
+                                                                nativePrice={livePrices[c.symbol]!}
+                                                                nativeCcy={currencyBadge}
+                                                                usdEqPrice={typeof livePrices[`${c.symbol}_USD`] === 'number' ? livePrices[`${c.symbol}_USD`]! : undefined}
+                                                                isUsdNative={currencyBadge === 'USD'}
+                                                                primaryClassName="text-xl text-neutral-200 font-medium"
+                                                                secondaryClassName="text-xs text-indigo-400/80 mt-0.5"
+                                                            />
+                                                        </>
+                                                    ) : <span className="text-sm text-neutral-500">N/A</span>
                                                 ) : (
-                                                    <span className="animate-pulse opacity-50">...</span>
+                                                    <span className="animate-pulse opacity-50 text-sm">...</span>
                                                 )}
-                                            </span>
+                                            </div>
                                             {c.ts && (
                                                 <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded",
                                                     (new Date().getTime() - new Date(c.ts).getTime()) < 24 * 60 * 60 * 1000 ? "bg-emerald-500/20 text-emerald-400" : "bg-orange-500/20 text-orange-400"
@@ -268,16 +268,10 @@ export default function Screener() {
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-1.5 mt-1">
-                                            <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded font-bold">{marketBadge}</span>
-                                            {currencyBadge !== 'USD' && (
-                                                <span className="text-[9px] text-indigo-400/60 font-mono uppercase">Normalized to USD for Rankings</span>
-                                            )}
-                                        </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <div className="text-sm font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
-                                            Score: {c.score.toFixed(0)}
+                                        <div className="text-[11px] font-bold text-neutral-100 bg-neutral-800 border border-neutral-700 px-2 py-0.5 rounded-full flex items-center justify-center">
+                                            {c.score.toFixed(0)}
                                         </div>
                                         {isTracked(c.symbol) ? (
                                             <button

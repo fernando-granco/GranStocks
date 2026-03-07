@@ -54,7 +54,7 @@ export default function DemoScreener() {
                         className="bg-neutral-800 hover:bg-neutral-700 text-white p-2 rounded-lg transition-colors flex items-center justify-center"
                         title="Toggle Language"
                     >
-                        <span className="text-xl leading-none">{i18n.language === 'en' ? '🇺🇸' : '🇧🇷'}</span>
+                        <span className="text-sm font-bold text-neutral-400 bg-white/5 px-2 py-1 rounded">{i18n.language === 'en' ? 'EN' : 'PT'}</span>
                     </button>
                 </div>
 
@@ -89,11 +89,11 @@ export default function DemoScreener() {
                         </div>
                         <div className="flex flex-wrap gap-3">
                             {[
-                                { id: 'SP500', label: '🇺🇸 S&P 500', active: true },
-                                { id: 'NASDAQ100', label: '🇺🇸 NASDAQ 100', active: false },
-                                { id: 'TSX60', label: '🇨🇦 TSX 60', active: false },
-                                { id: 'IBOV', label: '🇧🇷 IBOVESPA', active: false },
-                                { id: 'CRYPTO', label: '🪙 Crypto Top 100', active: false }
+                                { id: 'SP500', label: 'S&P 500', active: true },
+                                { id: 'NASDAQ100', label: 'NASDAQ 100', active: false },
+                                { id: 'TSX60', label: 'TSX 60', active: false },
+                                { id: 'IBOV', label: 'IBOVESPA', active: false },
+                                { id: 'CRYPTO', label: 'Crypto Top 100', active: false }
                             ].map(u => (
                                 <label key={u.id} className={cn(
                                     "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors",
@@ -112,13 +112,13 @@ export default function DemoScreener() {
                 {/* Display Tabs */}
                 <div className="flex flex-wrap gap-2 border-b border-neutral-800 pb-px">
                     <button className="px-4 py-3 text-sm font-medium border-b-2 transition-colors border-indigo-500 text-indigo-400">
-                        🇺🇸 S&P 500
+                        S&P 500
                     </button>
                     <button disabled className="px-4 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-neutral-500 opacity-50 cursor-not-allowed">
-                        🇨🇦 TSX 60
+                        TSX 60
                     </button>
                     <button disabled className="px-4 py-3 text-sm font-medium border-b-2 transition-colors border-transparent text-neutral-500 opacity-50 cursor-not-allowed">
-                        🇧🇷 IBOVESPA
+                        IBOVESPA
                     </button>
                 </div>
 
@@ -151,7 +151,6 @@ export default function DemoScreener() {
                                             <div>
                                                 <div className="font-bold text-lg flex items-center gap-2">
                                                     {c.symbol}
-                                                    <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 rounded font-normal flex items-center h-4">🇺🇸 US</span>
                                                 </div>
                                                 <div className="text-xs text-neutral-500 mt-0.5">Score: {c.score.toFixed(1)}</div>
                                             </div>
