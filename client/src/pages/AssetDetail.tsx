@@ -598,7 +598,7 @@ export default function AssetDetail({ symbol, assetType, onBack }: { symbol: str
                                         disabled={selectedProviders.length === 0 || aiMutation.isPending}
                                         className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-medium rounded-lg transition-all w-full flex items-center justify-center gap-2"
                                     >
-                                        {aiMutation.isPending ? 'Generating...' : <><Sparkles size={16} /> Compare Narratives</>}
+                                        {aiMutation.isPending ? 'Generating indicators & narrative...' : <><Sparkles size={16} /> Compare Narratives</>}
                                     </button>
 
                                     {aiMutation.isError && (

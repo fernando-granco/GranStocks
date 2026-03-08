@@ -12,9 +12,6 @@ import Screener from './pages/Screener';
 import AssetDetail from './pages/AssetDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import DemoDashboard from './pages/DemoDashboard';
-import DemoScreener from './pages/DemoScreener';
-import DemoAssetDetail from './pages/DemoAssetDetail';
 import AdminDashboard from './pages/AdminDashboard';
 import Watchlists from './pages/Watchlists';
 import Portfolio from './pages/Portfolio';
@@ -50,10 +47,6 @@ export default function App() {
                                 <Route path="/" element={<Landing />} />
                                 <Route path="/login" element={<Login />} />
                                 <Route path="/register" element={<Register />} />
-
-                                <Route path="/demo" element={<DemoDashboard />} />
-                                <Route path="/demo/screener" element={<DemoScreener />} />
-                                <Route path="/demo/asset/:assetType/:symbol" element={<DemoAssetDetail />} />
 
                                 <Route path="/app" element={<ProtectedRoute />}>
                                     <Route element={<Layout />}>

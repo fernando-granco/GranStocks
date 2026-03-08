@@ -123,12 +123,24 @@ export default function Dashboard({ onSelect }: { onSelect: (symbol: string, ass
                     <div className="flex justify-between items-center mb-8">
                         <div>
                             <h2 className="text-2xl font-bold tracking-tight">{t('dashboard.market_overview')}</h2>
-                            <div className="text-sm font-medium mt-1">
+                            <div className="text-sm font-medium mt-2 flex flex-col gap-1.5">
                                 {systemStatus?.ts ? (
-                                    <span className="flex items-center gap-1.5 text-neutral-400">
-                                        <div className={`w-2 h-2 rounded-full ${systemStatus.status === 'OK' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
-                                        Last system update: {new Date(systemStatus.ts).toLocaleTimeString()} {systemStatus.status === 'ERROR' && <span className="text-rose-400 ml-1">({systemStatus.error || 'Failed'})</span>}
-                                    </span>
+                                    <>
+                                        <div className="flex items-center gap-1.5 text-neutral-400">
+                                            <div className={`w-2 h-2 rounded-full ${systemStatus.status === 'OK' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
+                                            <span>System Heartbeat: {new Date(systemStatus.ts).toLocaleTimeString()} {systemStatus.status === 'ERROR' && <span className="text-rose-400 ml-1">({systemStatus.error || 'Failed'})</span>}</span>
+                                        </div>
+                                        {systemStatus.equitiesTs && (
+                                            <div className="flex items-center gap-1.5 pl-3.5 text-xs text-neutral-500">
+                                                <span>Equities: Updated {new Date(systemStatus.equitiesTs).toLocaleTimeString()} ({systemStatus.equitiesTs === systemStatus.ts ? 'Live' : 'Closed/Cached'})</span>
+                                            </div>
+                                        )}
+                                        {systemStatus.cryptoTs && (
+                                            <div className="flex items-center gap-1.5 pl-3.5 text-xs text-neutral-500">
+                                                <span>Crypto: Updated {new Date(systemStatus.cryptoTs).toLocaleTimeString()} (Live)</span>
+                                            </div>
+                                        )}
+                                    </>
                                 ) : (
                                     <span className="flex items-center gap-1.5 text-neutral-500">
                                         <div className="w-2 h-2 rounded-full bg-neutral-600" />

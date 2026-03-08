@@ -214,11 +214,12 @@ export default function UniverseDetail() {
                     {generatedNarratives.map((n: any, idx) => {
                         let text = n.contentText || '';
                         let isJson = false;
+                        let parsedData: any = null;
                         try {
                             const parsed = JSON.parse(text);
                             if (parsed && typeof parsed === 'object') {
                                 isJson = true;
-                                text = JSON.stringify(parsed, null, 2);
+                                parsedData = parsed;
                             }
                         } catch { }
 
@@ -227,11 +228,18 @@ export default function UniverseDetail() {
                                 <div className="absolute top-0 right-0 p-4 opacity-10">
                                     <Sparkles size={64} className="text-amber-500" />
                                 </div>
-                                <h2 className="text-lg font-bold text-amber-500 mb-3 flex items-center gap-2 pb-2 border-b border-amber-500/20">
-                                    <Sparkles size={18} /> {n.providerUsed || 'AI'} ({n.modelUsed || 'Model'})
+                                <h2 className="text-lg font-bold text-amber-500 mb-3 flex items-center justify-between pb-2 border-b border-amber-500/20">
+                                    <span className="flex items-center gap-2">
+                                        <Sparkles size={18} /> {n.providerUsed || 'AI'} ({n.modelUsed || 'Model'})
+                                    </span>
+                                    {isJson && parsedData?.action && (
+                                        <span className={`text-xs ml-3 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${parsedData.action === 'BUY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : parsedData.action === 'SELL' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                                            {parsedData.action}
+                                        </span>
+                                    )}
                                 </h2>
-                                <div className={`text-neutral-300 whitespace-pre-wrap leading-relaxed ${isJson ? 'text-xs font-mono bg-black/40 p-4 rounded-lg' : 'text-sm format-markdown'}`}>
-                                    {text}
+                                <div className="text-neutral-300 text-sm format-markdown leading-relaxed pr-8">
+                                    {isJson ? (parsedData?.narrative || text) : text}
                                 </div>
                             </div>
                         );

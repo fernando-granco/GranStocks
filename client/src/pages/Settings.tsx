@@ -155,9 +155,18 @@ export default function Settings() {
         mutationFn: async (id: string) => {
             const res = await fetch(`/api/settings/llm/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Failed to delete config');
+            return id;
         },
-        onSuccess: () => {
+        onSuccess: (deletedId) => {
             queryClient.invalidateQueries({ queryKey: ['llmConfigs'] });
+            if (configId === deletedId) {
+                setConfigId(null);
+                setConfigName('');
+                setConfigApiKey('');
+                setConfigModel('');
+                setConfigBaseUrl('');
+                document.getElementById('provider-modal')?.classList.add('hidden');
+            }
         }
     });
 

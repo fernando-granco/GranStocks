@@ -32,64 +32,74 @@ export async function registerRoutes(server: FastifyInstance) {
             const results: any[] = [];
             const queryUpper = q.toUpperCase();
 
-            // 1. Search finance_db.json (US stocks with names)
-            const dbPath = path.resolve(__dirname, '..', 'data', 'finance_db.json');
-            if (fs.existsSync(dbPath)) {
-                const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-                const matches = data.filter((item: any) =>
-                    (item.symbol && item.symbol.toUpperCase().includes(queryUpper)) ||
-                    (item.name && item.name.toUpperCase().includes(queryUpper))
-                ).map((item: any) => ({
-                    symbol: item.symbol,
-                    name: item.name,
-                    exchange: item.exchange,
-                    assetType: 'STOCK',
-                    currency: 'USD',
-                    country: 'US'
-                }));
-                results.push(...matches);
+            // Helper function to read local JSON arrays
+            const readLocalJson = (filename: string, dir: string) => {
+                const p1 = path.resolve(__dirname, '..', dir, filename);
+                const p2 = path.resolve(__dirname, dir, filename);
+                if (fs.existsSync(p1)) return JSON.parse(fs.readFileSync(p1, 'utf8'));
+                if (fs.existsSync(p2)) return JSON.parse(fs.readFileSync(p2, 'utf8'));
+                return [];
+            };
+
+            // 1. Search Global Finance DB (US stocks with names)
+            const dbData = readLocalJson('finance_db.json', 'data');
+            const matchesDB = dbData.filter((item: any) =>
+                (item.symbol && item.symbol.toUpperCase().includes(queryUpper)) ||
+                (item.name && item.name.toUpperCase().includes(queryUpper))
+            ).map((item: any) => ({
+                symbol: item.symbol,
+                name: item.name,
+                exchange: item.exchange || 'US',
+                assetType: 'STOCK',
+                currency: 'USD',
+                country: 'US'
+            }));
+            results.push(...matchesDB);
+
+            // 2. Search specific Universes
+            const uFiles = [
+                { file: 'sp500.json', suffix: '', exchange: 'US', cc: 'USD', country: 'US' },
+                { file: 'nasdaq100.json', suffix: '', exchange: 'US', cc: 'USD', country: 'US' },
+                { file: 'tsx60.json', suffix: '.TO', exchange: 'TSX', cc: 'CAD', country: 'CA' },
+                { file: 'ibov.json', suffix: '.SA', exchange: 'B3', cc: 'BRL', country: 'BR' }
+            ];
+
+            for (const uf of uFiles) {
+                const syms = readLocalJson(uf.file, 'data');
+                for (const sym of syms) {
+                    const cleanName = sym.replace(uf.suffix, '');
+                    if (sym.toUpperCase().includes(queryUpper) || cleanName.toUpperCase().includes(queryUpper)) {
+                        results.push({
+                            symbol: sym,
+                            name: cleanName,
+                            exchange: uf.exchange,
+                            assetType: 'STOCK',
+                            currency: uf.cc,
+                            country: uf.country
+                        });
+                    }
+                }
             }
 
-            // 2. Search TSX60 universe (Canadian stocks)
-            const tsxPath = path.resolve(__dirname, 'data', 'tsx60.json');
-            if (fs.existsSync(tsxPath)) {
-                const tsxSymbols: string[] = JSON.parse(fs.readFileSync(tsxPath, 'utf8'));
-                const tsxMatches = tsxSymbols
-                    .filter(sym => sym.toUpperCase().includes(queryUpper))
-                    .map(sym => ({
-                        symbol: sym,
-                        name: sym.replace('.TO', ''),
-                        exchange: 'TSX',
-                        assetType: 'STOCK',
-                        currency: 'CAD',
-                        country: 'CA'
-                    }));
-                results.push(...tsxMatches);
+            // 3. Crypto search mapping & aliases
+            const cryptoAliases: Record<string, string> = {
+                'BITCOIN': 'BTCUSDT', 'ETHEREUM': 'ETHUSDT', 'SOLANA': 'SOLUSDT',
+                'RIPPLE': 'XRPUSDT', 'CARDANO': 'ADAUSDT', 'DOGECOIN': 'DOGEUSDT'
+            };
+
+            let matchedCryptoSym = null;
+            if (cryptoAliases[queryUpper]) {
+                matchedCryptoSym = cryptoAliases[queryUpper];
+            } else if (queryUpper.endsWith('USDT') || queryUpper.length >= 2) {
+                // If it looks like a coin ticker (e.g. BTC, ETH, BNB), virtualize the USDT pair
+                const base = queryUpper.endsWith('USDT') ? queryUpper.replace('USDT', '') : queryUpper;
+                matchedCryptoSym = `${base}USDT`;
             }
 
-            // 3. Search IBOV universe (Brazilian stocks)
-            const ibovPath = path.resolve(__dirname, 'data', 'ibov.json');
-            if (fs.existsSync(ibovPath)) {
-                const ibovSymbols: string[] = JSON.parse(fs.readFileSync(ibovPath, 'utf8'));
-                const ibovMatches = ibovSymbols
-                    .filter(sym => sym.toUpperCase().includes(queryUpper))
-                    .map(sym => ({
-                        symbol: sym,
-                        name: sym.replace('.SA', ''),
-                        exchange: 'B3',
-                        assetType: 'STOCK',
-                        currency: 'BRL',
-                        country: 'BR'
-                    }));
-                results.push(...ibovMatches);
-            }
-
-            // 4. If it looks like a crypto pair, add it
-            if (queryUpper.endsWith('USDT') || queryUpper === 'BTC' || queryUpper === 'ETH') {
-                const cryptoSym = queryUpper.endsWith('USDT') ? queryUpper : `${queryUpper}USDT`;
+            if (matchedCryptoSym) {
                 results.unshift({
-                    symbol: cryptoSym,
-                    name: 'Binance Crypto Pair',
+                    symbol: matchedCryptoSym,
+                    name: `Crypto Pair (${matchedCryptoSym})`,
                     exchange: 'CRYPTO',
                     assetType: 'CRYPTO',
                     currency: 'USD',
@@ -97,7 +107,22 @@ export async function registerRoutes(server: FastifyInstance) {
                 });
             }
 
-            // 5. Search cached symbols in DB
+            // Crypto JSON fallback
+            const cryptoSyms = readLocalJson('crypto.json', 'data');
+            for (const sym of cryptoSyms) {
+                if (sym.toUpperCase().includes(queryUpper)) {
+                    results.push({
+                        symbol: sym,
+                        name: sym.replace('USDT', ''),
+                        exchange: 'CRYPTO',
+                        assetType: 'CRYPTO',
+                        currency: 'USD',
+                        country: 'GLOBAL'
+                    });
+                }
+            }
+
+            // 4. Fallback search via DB 
             const dbAssets = await prisma.asset.findMany({
                 where: {
                     OR: [
@@ -105,9 +130,8 @@ export async function registerRoutes(server: FastifyInstance) {
                         { displayName: { contains: queryUpper } }
                     ]
                 },
-                take: 15
+                take: 20
             });
-
             const dbMatches = dbAssets.map(a => ({
                 symbol: a.symbol,
                 name: a.displayName || a.symbol,
@@ -118,17 +142,17 @@ export async function registerRoutes(server: FastifyInstance) {
             }));
             results.push(...dbMatches);
 
-            // Deduplicate by symbol
+            // 5. Deduplicate perfectly
+            const finalResults = [];
             const seen = new Set();
-            const uniqueResults = [];
             for (const r of results) {
                 if (!seen.has(r.symbol)) {
                     seen.add(r.symbol);
-                    uniqueResults.push(r);
+                    finalResults.push(r);
                 }
             }
 
-            return uniqueResults.slice(0, 50); // Hard cap for UI performance
+            return finalResults.slice(0, 50);
         } catch (e) {
             console.error('Search error', e);
             return [];
@@ -793,25 +817,48 @@ export async function registerRoutes(server: FastifyInstance) {
                 }
 
                 // --- Fetch deterministic context: try today first, fallback to latest ---
-                const predContext = await prisma.predictionSnapshot.findFirst({
+                // --- Fetch deterministic context: try today first, fallback to latest ---
+                let predContext = await prisma.predictionSnapshot.findFirst({
                     where: { symbol, horizonDays: 20 },
                     orderBy: { date: 'desc' }
                 });
 
-                const indContext = await prisma.indicatorSnapshot.findFirst({
+                let indContext = await prisma.indicatorSnapshot.findFirst({
                     where: { symbol },
                     orderBy: { date: 'desc' }
                 });
 
-                const firmView = await prisma.analysisSnapshot.findMany({
+                let firmView = await prisma.analysisSnapshot.findMany({
                     where: { symbol },
                     orderBy: { date: 'desc' },
                     take: 10
                 });
 
                 if (!predContext && firmView.length === 0 && !indContext) {
-                    errors.push(`No indicator data found for ${symbol}. Run the Daily Job first.`);
-                    continue;
+                    console.log(`[AI] Missing indicators for ${symbol}. Generating on-demand...`);
+                    const assetRec = await prisma.asset.findUnique({ where: { symbol } });
+                    const assetType = assetRec?.type || 'STOCK';
+                    await DailyJobService.processAsset({ symbol, type: assetType }, date);
+
+                    // Re-fetch context
+                    predContext = await prisma.predictionSnapshot.findFirst({
+                        where: { symbol, horizonDays: 20 },
+                        orderBy: { date: 'desc' }
+                    });
+                    indContext = await prisma.indicatorSnapshot.findFirst({
+                        where: { symbol },
+                        orderBy: { date: 'desc' }
+                    });
+                    firmView = await prisma.analysisSnapshot.findMany({
+                        where: { symbol },
+                        orderBy: { date: 'desc' },
+                        take: 10
+                    });
+
+                    if (!predContext && firmView.length === 0 && !indContext) {
+                        errors.push(`Failed to generate indicator data for ${symbol}. Please try again later.`);
+                        continue;
+                    }
                 }
 
                 let evidencePack = 'No raw indicators available.';
@@ -937,14 +984,31 @@ export async function registerRoutes(server: FastifyInstance) {
 
     // --- System Status ---
     server.get('/api/system/scheduler-status', async (req, reply) => {
-        const cached = await prisma.cachedResponse.findUnique({ where: { cacheKey: 'scheduler_last_run' } });
-        if (!cached) return { status: 'UNKNOWN', ts: null };
-        try {
-            const data = JSON.parse(cached.payloadJson);
-            return { status: data.status, error: data.error, ts: cached.ts };
-        } catch {
-            return { status: 'UNKNOWN', ts: cached.ts };
+        const [heartbeat, equities, crypto] = await Promise.all([
+            prisma.cachedResponse.findUnique({ where: { cacheKey: 'scheduler_heartbeat' } }),
+            prisma.cachedResponse.findUnique({ where: { cacheKey: 'scheduler_last_success_equities' } }),
+            prisma.cachedResponse.findUnique({ where: { cacheKey: 'scheduler_last_success_crypto' } })
+        ]);
+
+        let status = 'UNKNOWN';
+        let error = undefined;
+        let ts = heartbeat?.ts || null;
+
+        if (heartbeat) {
+            try {
+                const data = JSON.parse(heartbeat.payloadJson);
+                status = data.status;
+                error = data.error;
+            } catch (e) { }
         }
+
+        return {
+            status,
+            error,
+            ts,
+            equitiesTs: equities?.ts || null,
+            cryptoTs: crypto?.ts || null
+        };
     });
 
     // --- Admin ---

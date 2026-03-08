@@ -93,12 +93,6 @@ export default function Landing() {
                         >
                             {t('landing.btn_create_account')} <ArrowRight className="w-5 h-5" />
                         </button>
-                        <button
-                            onClick={() => navigate('/demo')}
-                            className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all"
-                        >
-                            {t('landing.btn_view_demo')}
-                        </button>
                     </div>
                 </section>
 
