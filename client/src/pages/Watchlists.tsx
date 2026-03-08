@@ -12,10 +12,22 @@ export default function Watchlists() {
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
-    // Portfolio inline form
-    const [showPortfolioFormFor, setShowPortfolioFormFor] = useState<string | null>(null);
+    // Portfolio Add Position Modal
+    const [showPortfolioModalFor, setShowPortfolioModalFor] = useState<any | null>(null);
+    const [formPortfolioId, setFormPortfolioId] = useState('');
     const [formQty, setFormQty] = useState('');
     const [formPrice, setFormPrice] = useState('');
+    const [formAcquiredAt, setFormAcquiredAt] = useState('');
+    const [formFees, setFormFees] = useState('');
+
+    const { data: portfolios = [] } = useQuery({
+        queryKey: ['portfolios'],
+        queryFn: async () => {
+            const res = await fetch('/api/portfolio/list');
+            if (!res.ok) return [];
+            return res.json();
+        }
+    });
 
     // For bulk Universe creation
     const [selectedSymbols, setSelectedSymbols] = useState<any[]>([]);
@@ -111,7 +123,7 @@ export default function Watchlists() {
     });
 
     const addPortfolioMutation = useMutation({
-        mutationFn: async (vars: { symbol: string, type: string, qty: number, price: number }) => {
+        mutationFn: async (vars: { portfolioId: string, symbol: string, assetType: string, quantity: number, averageCost: number, acquiredAt?: string, fees?: number }) => {
             const res = await fetch('/api/portfolio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -120,10 +132,11 @@ export default function Watchlists() {
             if (!res.ok) throw new Error('Failed to add to portfolio');
         },
         onSuccess: () => {
-            setShowPortfolioFormFor(null);
+            setShowPortfolioModalFor(null);
             setFormQty('');
             setFormPrice('');
-            // Invalidate tracked assets to update UI just in case Portfolio adds logic to auto-track
+            setFormAcquiredAt('');
+            setFormFees('');
             queryClient.invalidateQueries({ queryKey: ['portfolio'] });
         }
     });
@@ -235,56 +248,19 @@ export default function Watchlists() {
                                                             </button>
                                                         )}
                                                         <button
-                                                            onClick={() => setShowPortfolioFormFor(showPortfolioFormFor === r.symbol ? null : r.symbol)}
-                                                            className={`transition-colors tooltip ${showPortfolioFormFor === r.symbol ? 'text-indigo-400' : 'text-neutral-500 hover:text-indigo-400'}`}
+                                                            onClick={() => {
+                                                                setShowPortfolioModalFor(r);
+                                                                if (portfolios.length > 0 && !formPortfolioId) {
+                                                                    setFormPortfolioId(portfolios[0].id);
+                                                                }
+                                                            }}
+                                                            className="transition-colors tooltip text-neutral-500 hover:text-indigo-400"
                                                             title="Add to Portfolio"
                                                         >
                                                             <Briefcase className="w-5 h-5" />
                                                         </button>
                                                     </td>
                                                 </tr>
-                                                {showPortfolioFormFor === r.symbol && (
-                                                    <tr className="bg-neutral-800/20">
-                                                        <td colSpan={5} className="p-4">
-                                                            <form
-                                                                className="flex items-end gap-4 max-w-lg ml-auto bg-neutral-900 border border-neutral-800 p-4 rounded-xl"
-                                                                onSubmit={e => {
-                                                                    e.preventDefault();
-                                                                    addPortfolioMutation.mutate({
-                                                                        symbol: r.symbol,
-                                                                        type: r.assetType || 'STOCK',
-                                                                        qty: Number(formQty),
-                                                                        price: Number(formPrice)
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <div className="flex-1 text-left">
-                                                                    <label className="text-xs text-indigo-300 uppercase font-semibold mb-1 block">Quantity</label>
-                                                                    <input
-                                                                        type="number" step="any" min="0" required
-                                                                        className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                                                        value={formQty} onChange={e => setFormQty(e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <div className="flex-1 text-left">
-                                                                    <label className="text-xs text-indigo-300 uppercase font-semibold mb-1 block">Entry Price ($)</label>
-                                                                    <input
-                                                                        type="number" step="any" min="0" required
-                                                                        className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                                                                        value={formPrice} onChange={e => setFormPrice(e.target.value)}
-                                                                    />
-                                                                </div>
-                                                                <button
-                                                                    type="submit"
-                                                                    disabled={addPortfolioMutation.isPending}
-                                                                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg py-2 px-6 transition-colors h-[38px] flex items-center"
-                                                                >
-                                                                    Confirm
-                                                                </button>
-                                                            </form>
-                                                        </td>
-                                                    </tr>
-                                                )}
                                             </React.Fragment>
                                         ))}
                                     </tbody>
@@ -416,6 +392,108 @@ export default function Watchlists() {
                     </div>
                 </div>
             </div>
+
+            {/* Add to Portfolio Modal */}
+            {showPortfolioModalFor && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+                        <div className="flex justify-between items-center p-4 border-b border-neutral-800">
+                            <h3 className="font-bold text-lg">Add Position</h3>
+                            <button onClick={() => setShowPortfolioModalFor(null)} className="text-neutral-500 hover:text-white transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <form
+                            className="p-6 space-y-4"
+                            onSubmit={e => {
+                                e.preventDefault();
+                                if (!formPortfolioId) return;
+                                addPortfolioMutation.mutate({
+                                    portfolioId: formPortfolioId,
+                                    symbol: showPortfolioModalFor.symbol,
+                                    assetType: showPortfolioModalFor.assetType || 'STOCK',
+                                    quantity: Number(formQty),
+                                    averageCost: Number(formPrice),
+                                    acquiredAt: formAcquiredAt ? new Date(formAcquiredAt).toISOString() : undefined,
+                                    fees: formFees ? Number(formFees) : 0
+                                });
+                            }}
+                        >
+                            <div>
+                                <label className="text-xs text-indigo-300 uppercase font-semibold mb-1 block">Symbol</label>
+                                <input
+                                    type="text" disabled
+                                    className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white focus:outline-none opacity-50 cursor-not-allowed"
+                                    value={showPortfolioModalFor.symbol}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs text-indigo-300 uppercase font-semibold mb-1 block">Select Portfolio</label>
+                                <select
+                                    required
+                                    className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                                    value={formPortfolioId}
+                                    onChange={e => setFormPortfolioId(e.target.value)}
+                                >
+                                    <option value="" disabled>Choose a portfolio...</option>
+                                    {portfolios.map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.name} ({p.baseCurrency})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs text-neutral-400 uppercase font-semibold mb-1 block">Quantity</label>
+                                    <input
+                                        type="number" step="any" min="0" required
+                                        className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                                        value={formQty} onChange={e => setFormQty(e.target.value)} placeholder="0.00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-neutral-400 uppercase font-semibold mb-1 block">Avg Cost</label>
+                                    <input
+                                        type="number" step="any" min="0" required
+                                        className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                                        value={formPrice} onChange={e => setFormPrice(e.target.value)} placeholder="0.00"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs text-neutral-400 uppercase font-semibold mb-1 block">Acquisition Date (Opt)</label>
+                                    <input
+                                        type="datetime-local"
+                                        className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500 [color-scheme:dark]"
+                                        value={formAcquiredAt} onChange={e => setFormAcquiredAt(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-neutral-400 uppercase font-semibold mb-1 block">Fees (Opt)</label>
+                                    <input
+                                        type="number" step="any" min="0"
+                                        className="w-full bg-neutral-950 border border-neutral-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                                        value={formFees} onChange={e => setFormFees(e.target.value)} placeholder="0.00"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-6">
+                                <button
+                                    type="submit"
+                                    disabled={addPortfolioMutation.isPending}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg py-3 transition-colors flex items-center justify-center disabled:opacity-50"
+                                >
+                                    {addPortfolioMutation.isPending ? 'Adding Position...' : 'Add Position'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -142,6 +142,33 @@ export async function registerRoutes(server: FastifyInstance) {
             }));
             results.push(...dbMatches);
 
+            // 4.5 Fallback search via Finnhub if query is long enough
+            const isExactCryptoAlias = !!cryptoAliases[queryUpper];
+            const isCryptoIntent = queryUpper.endsWith('USDT') || isExactCryptoAlias || (queryUpper.length <= 5 && ['BTC', 'ETH', 'SOL', 'ADA', 'DOGE', 'XRP', 'BNB', 'DOT'].includes(queryUpper));
+
+            if (queryUpper.length >= 3 && !isCryptoIntent) {
+                try {
+                    const { FinnhubService } = await import('./services/finnhub');
+                    const fhResults = await FinnhubService.search(q);
+                    if (fhResults && fhResults.result) {
+                        for (const r of fhResults.result) {
+                            if (r.type === 'Common Stock' && !r.symbol.includes('.')) {
+                                results.push({
+                                    symbol: r.symbol,
+                                    name: r.description,
+                                    exchange: 'US', // default US for finnhub base
+                                    assetType: 'STOCK',
+                                    currency: 'USD',
+                                    country: 'US'
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Finnhub search fallback error:', e);
+                }
+            }
+
             // 5. Deduplicate perfectly
             const finalResults = [];
             const seen = new Set();
@@ -151,6 +178,35 @@ export async function registerRoutes(server: FastifyInstance) {
                     finalResults.push(r);
                 }
             }
+
+            // 6. Smart Sorting
+            const score = (r: any) => {
+                let s = 0;
+                // Exact symbol match
+                if (r.symbol.toUpperCase() === queryUpper) s += 100;
+                // Starts with symbol
+                else if (r.symbol.toUpperCase().startsWith(queryUpper)) s += 50;
+
+                // Exact name match
+                if (r.name && r.name.toUpperCase() === queryUpper) s += 80;
+                // Partial name match
+                else if (r.name && r.name.toUpperCase().includes(queryUpper)) s += 30;
+
+                // Priority based on inferred intent
+                if (queryUpper.length > 4 && !isCryptoIntent) {
+                    // Looks like a company name keyword, prioritize STOCKS
+                    if (r.assetType === 'STOCK') s += 15;
+                }
+
+                if (isCryptoIntent) {
+                    // Looks like a crypto intent, prioritize CRYPTO
+                    if (r.assetType === 'CRYPTO') s += 15;
+                }
+
+                return s;
+            };
+
+            finalResults.sort((a, b) => score(b) - score(a));
 
             return finalResults.slice(0, 50);
         } catch (e) {
@@ -435,6 +491,9 @@ export async function registerRoutes(server: FastifyInstance) {
         if (!config || config.userId !== authUser.id) {
             return reply.status(404).send({ error: 'Config not found' });
         }
+
+        // Cascade delete dependent AiNarrative records for this configuration
+        await prisma.aiNarrative.deleteMany({ where: { llmConfigId: id } });
 
         await prisma.userLLMConfig.delete({ where: { id } });
         return { success: true };
